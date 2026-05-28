@@ -30,66 +30,68 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up Depot CLI
         uses: depot/setup-action@v1
-      - name: API - Docker tags and metadata
-        id: api-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "api-meta"
-          images: |
-            falseflag/api
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-      - name: Proxy - Docker tags and metadata
-        id: proxy-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "proxy-meta"
-          images: |
-            falseflag/proxy
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-      - name: Loadgen - Docker tags and metadata
-        id: loadgen-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "loadgen-meta"
-          images: |
-            falseflag/loadgen
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-      - name: Operator - Docker tags and metadata
-        id: operator-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "operator-meta"
-          images: |
-            falseflag/operator
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-      - name: MCP - Docker tags and metadata
-        id: mcp-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "mcp-meta"
-          images: |
-            falseflag/mcp
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-      - name: Dashboard - Docker tags and metadata
-        id: dashboard-meta
-        uses: docker/metadata-action@v6
-        with:
-          bake-target: "dashboard-meta"
-          images: |
-            falseflag/dashboard
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
+      - fail-fast: false
+        parallel:
+          - name: API - Docker tags and metadata
+            id: api-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "api-meta"
+              images: |
+                falseflag/api
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
+          - name: Proxy - Docker tags and metadata
+            id: proxy-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "proxy-meta"
+              images: |
+                falseflag/proxy
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
+          - name: Loadgen - Docker tags and metadata
+            id: loadgen-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "loadgen-meta"
+              images: |
+                falseflag/loadgen
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
+          - name: Operator - Docker tags and metadata
+            id: operator-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "operator-meta"
+              images: |
+                falseflag/operator
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
+          - name: MCP - Docker tags and metadata
+            id: mcp-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "mcp-meta"
+              images: |
+                falseflag/mcp
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
+          - name: Dashboard - Docker tags and metadata
+            id: dashboard-meta
+            uses: docker/metadata-action@v6
+            with:
+              bake-target: "dashboard-meta"
+              images: |
+                falseflag/dashboard
+              tags: |
+                type=ref,event=branch
+                type=semver,pattern={{version}}
       - name: Build
         id: bake
         uses: depot/bake-action@v1

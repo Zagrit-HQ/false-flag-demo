@@ -309,7 +309,7 @@ jobs:
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }}, shard ${{ matrix.shard }}/6)
     runs-on:
-      size: 4x16
+      size: 2x8
       image: d58mfwccbf.registry.depot.dev/falseflag-ci-base:go1.26-node22-pnpm10.13-pw1.49-spectral6.14-postgres16
     needs: build-images
     timeout-minutes: 25
