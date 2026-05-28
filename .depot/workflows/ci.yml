@@ -296,7 +296,9 @@ jobs:
           if-no-files-found: ignore
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }}, shard ${{ matrix.shard }}/4)
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    runs-on:
+      size: 4x16
+      image: d58mfwccbf.registry.depot.dev/falseflag-dashboard-e2e:go1.26-node22-pnpm10.13-pw1.49-postgres16
     needs: build-images
     timeout-minutes: 25
     strategy:
@@ -313,31 +315,6 @@ jobs:
         uses: depot/pull-action@v1
         with:
           build-id: ${{ needs.build-images.outputs.build-id }}
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: js/pnpm-lock.yaml
-      - name: pnpm install
-        working-directory: js
-        run: pnpm install --frozen-lockfile
-      - name: pnpm generate
-        working-directory: js
-        run: pnpm generate
-      - name: cache playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
-      - name: install playwright chromium
-        working-directory: js
-        run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
       - name: docker compose up
         run: docker compose -f "${COMPOSE_FILE}" up -d --no-build --wait --wait-timeout 120
       - name: make seed
@@ -345,11 +322,19 @@ jobs:
       - name: wait for proxy snapshot poll
         run: sleep 2
       - name: playwright dashboard-e2e shard
-        working-directory: js
         env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
           FALSEFLAG_DASHBOARD_URL: http://127.0.0.1:3030
           FALSEFLAG_API_BASE_URL: http://127.0.0.1:8080
-        run: pnpm --filter @falseflag/dashboard exec playwright test --shard=${{ matrix.shard }}/4
+        run: |
+          npm install --prefix /tmp/playwright-runner --no-save "@playwright/test@${PLAYWRIGHT_VERSION}"
+          mkdir -p js/apps/dashboard/node_modules/@playwright
+          ln -s /tmp/playwright-runner/node_modules/@playwright/test js/apps/dashboard/node_modules/@playwright/test
+          ln -s /tmp/playwright-runner/node_modules/playwright js/apps/dashboard/node_modules/playwright
+          ln -s /tmp/playwright-runner/node_modules/playwright-core js/apps/dashboard/node_modules/playwright-core
+          /tmp/playwright-runner/node_modules/.bin/playwright test \
+            --config js/apps/dashboard/playwright.config.ts \
+            --shard=${{ matrix.shard }}/4
       - name: dump compose logs (on failure)
         if: failure()
         run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt

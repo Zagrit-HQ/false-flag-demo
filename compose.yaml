@@ -32,9 +32,9 @@ services:
       - falseflag-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U falseflag -d falseflag"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      interval: 1s
+      timeout: 2s
+      retries: 60
 
   api:
     image: ghcr.io/depot/falseflag/api:dev
@@ -55,9 +55,9 @@ services:
       - "8090:8090"
     healthcheck:
       test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8080/healthz"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+      interval: 1s
+      timeout: 2s
+      retries: 60
     depends_on:
       db:
         condition: service_healthy
@@ -84,9 +84,9 @@ services:
       - "8081:8081"
     healthcheck:
       test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8081/readyz"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+      interval: 1s
+      timeout: 2s
+      retries: 60
     depends_on:
       api:
         condition: service_healthy
@@ -129,9 +129,9 @@ services:
       - "8092:8092"
     healthcheck:
       test: ["CMD", "/usr/local/bin/service", "healthcheck", "http://127.0.0.1:8092/healthz"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+      interval: 1s
+      timeout: 2s
+      retries: 60
     depends_on:
       api:
         condition: service_healthy
@@ -157,9 +157,9 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+      interval: 1s
+      timeout: 2s
+      retries: 60
     depends_on:
       api:
         condition: service_healthy

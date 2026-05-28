@@ -1,0 +1,44 @@
+name: snapshot-e2e
+on:
+  workflow_dispatch:
+env:
+  GO_VERSION: "1.26.0"
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.13.1"
+  PLAYWRIGHT_VERSION: "1.49.1"
+  POSTGRES_IMAGE: "postgres:16-alpine"
+  SNAPSHOT_IMAGE: "d58mfwccbf.registry.depot.dev/falseflag-dashboard-e2e:go1.26-node22-pnpm10.13-pw1.49-postgres16"
+jobs:
+  build-image:
+    name: build dashboard-e2e image
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: install pnpm
+        run: npm install -g pnpm@${PNPM_VERSION}
+      - name: expose runtime tools on default PATH
+        run: |
+          set -euo pipefail
+          for tool in go node npm npx pnpm; do
+            path="$(command -v "${tool}")"
+            sudo ln -sf "${path}" "/usr/local/bin/${tool}"
+          done
+          go version
+          node --version
+          pnpm --version
+      - name: install playwright chromium
+        run: pnpm dlx playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium
+      - name: pull compose postgres image
+        run: docker pull "${POSTGRES_IMAGE}"
+      - name: snapshot sandbox
+        uses: depot/snapshot-action@v1
+        with:
+          image: ${{ env.SNAPSHOT_IMAGE }}
