@@ -7,24 +7,26 @@ on:
 
 jobs:
   lint:
-    name: Lint for JavaScript
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Read tool versions
+        id: tool-versions
+        run: |
+          echo "node=$(awk '/^nodejs / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "go=$(awk '/^golang / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "pnpm=$(awk '/^pnpm / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v5
         with:
-          go-version-file: .tool-versions
+          go-version: ${{ steps.pnpm-version.outputs.go }}
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .tool-versions
-      - name: Read pnpm version
-        id: pnpm-version
-        run: |
-          echo "version=$(awk '/^pnpm / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+          node-version: ${{ steps.pnpm-version.outputs.node }}
       - uses: pnpm/action-setup@v4
         with:
-          version: ${{ steps.pnpm-version.outputs.version }}
+          version: ${{ steps.pnpm-version.outputs.pnpm }}
 
       - name: pnpm install
         working-directory: js
