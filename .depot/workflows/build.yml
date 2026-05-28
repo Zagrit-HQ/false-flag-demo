@@ -1,0 +1,112 @@
+# Depot CI Migration
+# Source: .github/workflows/build.yml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
+
+name: build.yml
+on:
+  workflow_call:
+    outputs:
+      build-id:
+        description: Depot saved build ID for downstream image pulls.
+        value: ${{ jobs.build.outputs.build-id }}
+  push:
+    tags:
+      - "[0-9].[0-9]+.[0-9]+"
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  build:
+    name: Build
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 50
+    outputs:
+      build-id: ${{ steps.bake.outputs.build-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+      - name: API - Docker tags and metadata
+        id: api-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "api-meta"
+          images: |
+            falseflag/api
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Proxy - Docker tags and metadata
+        id: proxy-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "proxy-meta"
+          images: |
+            falseflag/proxy
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Loadgen - Docker tags and metadata
+        id: loadgen-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "loadgen-meta"
+          images: |
+            falseflag/loadgen
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Operator - Docker tags and metadata
+        id: operator-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "operator-meta"
+          images: |
+            falseflag/operator
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: MCP - Docker tags and metadata
+        id: mcp-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "mcp-meta"
+          images: |
+            falseflag/mcp
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Dashboard - Docker tags and metadata
+        id: dashboard-meta
+        uses: docker/metadata-action@v6
+        with:
+          bake-target: "dashboard-meta"
+          images: |
+            falseflag/dashboard
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      - name: Build
+        id: bake
+        uses: depot/bake-action@v1
+        with:
+          files: |
+            ./docker-bake.hcl
+            ${{ steps.api-meta.outputs.bake-file }}
+            ${{ steps.dashboard-meta.outputs.bake-file }}
+            ${{ steps.proxy-meta.outputs.bake-file }}
+            ${{ steps.operator-meta.outputs.bake-file }}
+            ${{ steps.mcp-meta.outputs.bake-file }}
+            ${{ steps.loadgen-meta.outputs.bake-file }}
+          targets: default
+          provenance: mode=max
+          sbom: true
+          # Only tags are pushed, pushes to branches test whether app can be built.
+          push: ${{github.ref_type == 'tag'}}
+          save: true
+        env:
+          VERSION: ${{ fromJSON(steps.api-meta.outputs.json).labels['org.opencontainers.image.version'] }}

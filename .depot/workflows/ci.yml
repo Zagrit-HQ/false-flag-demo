@@ -1,0 +1,409 @@
+# Depot CI Migration
+# Source: .github/workflows/ci.yml
+#
+# Changes made:
+# - Rewrote .github/ path references to .depot/
+# - Changed GitHub runs-on labels to their Depot equivalents
+
+name: ci-baseline
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+concurrency:
+  group: ci-baseline-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  id-token: write
+env:
+  GO_VERSION: "1.26.0"
+  NODE_VERSION: "22"
+  # Hurl 4.x semantics — `contains` matches array members. Hurl 5.x
+  # tightened `contains` to substring-only and split out `includes` for
+  # arrays. The slice 1–6 test corpus was written against 4.x.
+  HURL_VERSION: "4.3.0"
+  KIND_NODE_IMAGE: "kindest/node:v1.31.4"
+  KUBECTL_VERSION: "v1.31.4"
+  HELM_VERSION: "v3.16.4"
+  PLAYWRIGHT_VERSION: "1.49.1"
+jobs:
+  test-go:
+    name: test-go
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: make test-go
+        run: make test-go
+  test-go-race:
+    name: test-go-race (${{ matrix.backend }})
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [postgres, sqlite]
+    services:
+      # GitHub Actions services aren't matrix-conditional; the
+      # Postgres container starts for both entries and the SQLite
+      # entry simply ignores it.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: falseflag
+          POSTGRES_PASSWORD: falseflag
+          POSTGRES_DB: falseflag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U falseflag -d falseflag" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: wait for postgres
+        if: matrix.backend == 'postgres'
+        run: |
+          for _ in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U falseflag >/dev/null 2>&1; then
+              echo "postgres ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "postgres never became ready"; exit 1
+      # Race detector scoped to the packages that actually carry
+      # shared mutable state under concurrent access: the snapshot
+      # polling loop in sdkgo, the in-memory eval engine, and the
+      # repository layer that backs both REST and Connect handlers.
+      # Running the full ./... under -race triples Go test wall time
+      # for little additional signal.
+      #
+      # The store/integration_test parametrizes over both backends via
+      # forEachBackend: the SQLite subtest runs unconditionally and the
+      # Postgres subtest is gated on FALSEFLAG_TEST_DATABASE_URL — set
+      # only for the postgres matrix entry below.
+      - name: go test -race
+        env:
+          FALSEFLAG_TEST_DATABASE_URL: ${{ matrix.backend == 'postgres' && 'postgres://falseflag:falseflag@localhost:5432/falseflag?sslmode=disable' || '' }}
+        run: go test -race ./internal/eval/... ./internal/sdkgo/... ./internal/store/...
+  test-js:
+    name: test-js
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make test-js
+        run: make test-js
+  build-js:
+    name: build-js
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make build-js
+        run: make build-js
+  conformance:
+    name: conformance
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make conformance
+        run: make conformance
+  contract-test:
+    name: contract-test (${{ matrix.backend }})
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [postgres, sqlite]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: falseflag
+          POSTGRES_PASSWORD: falseflag
+          POSTGRES_DB: falseflag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U falseflag -d falseflag" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      # The service container's health-check is GitHub's own; this
+      # extra poll guards the rare case where the container is
+      # reported "started" before pg_isready inside it succeeds. Not
+      # an artificial sleep — bounded readiness check with a real exit
+      # condition.
+      - name: wait for postgres
+        if: matrix.backend == 'postgres'
+        run: |
+          for _ in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U falseflag >/dev/null 2>&1; then
+              echo "postgres ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "postgres never became ready"; exit 1
+      - name: prepare sqlite scratch dir
+        if: matrix.backend == 'sqlite'
+        run: mkdir -p /tmp/ff-contract && rm -f /tmp/ff-contract/*
+      - name: make contract-test
+        env:
+          FALSEFLAG_TEST_DATABASE_URL: ${{ matrix.backend == 'postgres' && 'postgres://falseflag:falseflag@localhost:5432/falseflag?sslmode=disable' || 'sqlite:///tmp/ff-contract/test.db' }}
+        run: make contract-test
+  build-images:
+    name: build-images
+    uses: ./.depot/workflows/build.yml
+  image-scan:
+    name: image-scan
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    needs: build-images
+    timeout-minutes: 20
+    steps:
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
+        with:
+          build-id: ${{ needs.build-images.outputs.build-id }}
+      # --ignore-unfixed: only fail on CVEs that have a fix available;
+      # unfixable base-image CVEs aren't actionable in a feature-flag
+      # service. Slice 7b inherits the same threshold. Each scan uses
+      # continue-on-error so devs see every image's CVEs in one log;
+      # the aggregator step fails the job if any scan reported issues.
+      - name: trivy image scan (api)
+        id: trivy_api
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/api:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (proxy)
+        id: trivy_proxy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/proxy:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (operator)
+        id: trivy_operator
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/operator:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (mcp)
+        id: trivy_mcp
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/mcp:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (dashboard)
+        id: trivy_dashboard
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/dashboard:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: fail if any scan reported vulnerabilities
+        run: |
+          set -euo pipefail
+          fail=0
+          for name in api proxy operator mcp dashboard; do
+            case "${name}" in
+              api)       outcome="${{ steps.trivy_api.outcome }}";;
+              proxy)     outcome="${{ steps.trivy_proxy.outcome }}";;
+              operator)  outcome="${{ steps.trivy_operator.outcome }}";;
+              mcp)       outcome="${{ steps.trivy_mcp.outcome }}";;
+              dashboard) outcome="${{ steps.trivy_dashboard.outcome }}";;
+            esac
+            echo "${name}: ${outcome}"
+            if [ "${outcome}" != "success" ]; then
+              fail=1
+            fi
+          done
+          exit "${fail}"
+  smoke:
+    name: smoke (${{ matrix.backend }})
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    needs: build-images
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: postgres
+            compose-file: compose.yaml
+          - backend: sqlite
+            compose-file: compose.sqlite.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
+        with:
+          build-id: ${{ needs.build-images.outputs.build-id }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: install hurl
+        run: |
+          curl -fsSLO "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+          sudo dpkg -i "hurl_${HURL_VERSION}_amd64.deb"
+          rm -f "hurl_${HURL_VERSION}_amd64.deb"
+          hurl --version
+      - name: docker compose up
+        run: docker compose -f "${{ matrix.compose-file }}" up -d --no-build --wait --wait-timeout 120
+      - name: seed demo dataset
+        run: go run ./cmd/falseflag-seed
+      - name: wait for proxy snapshot poll
+        run: sleep 2
+      - name: hurl smoke suite
+        run: hurl --test --jobs 1 --variable mcp_base_url=http://localhost:8091 tests/hurl/*.hurl
+      - name: dump compose logs (on failure)
+        if: failure()
+        run: docker compose -f "${{ matrix.compose-file }}" logs > compose-logs.txt
+      - name: upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-smoke-${{ matrix.backend }}
+          path: compose-logs.txt
+          if-no-files-found: ignore
+  dashboard-e2e:
+    name: dashboard-e2e (${{ matrix.backend }}, shard ${{ matrix.shard }}/4)
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
+    needs: build-images
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [postgres, sqlite]
+        shard: [1, 2, 3, 4]
+    env:
+      COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
+        with:
+          build-id: ${{ needs.build-images.outputs.build-id }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: cache playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: install playwright chromium
+        working-directory: js
+        run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+      - name: docker compose up
+        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build --wait --wait-timeout 120
+      - name: make seed
+        run: make seed
+      - name: wait for proxy snapshot poll
+        run: sleep 2
+      - name: playwright dashboard-e2e shard
+        working-directory: js
+        env:
+          FALSEFLAG_DASHBOARD_URL: http://127.0.0.1:3030
+          FALSEFLAG_API_BASE_URL: http://127.0.0.1:8080
+        run: pnpm --filter @falseflag/dashboard exec playwright test --shard=${{ matrix.shard }}/4
+      - name: dump compose logs (on failure)
+        if: failure()
+        run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
+      - name: upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-dashboard-e2e-${{ matrix.backend }}-${{ matrix.shard }}-of-4
+          path: compose-logs.txt
+          if-no-files-found: ignore
