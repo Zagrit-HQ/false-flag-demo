@@ -155,10 +155,10 @@ dashboard-dev:
 	cd js && pnpm --filter @falseflag/dashboard dev
 
 bake-print:
-	cd infra && docker buildx bake --print
+	docker buildx bake -f docker-bake.hcl --print
 
 bake:
-	cd infra && docker buildx bake
+	docker buildx bake -f docker-bake.hcl
 
 up:
 	$(COMPOSE) up -d --build

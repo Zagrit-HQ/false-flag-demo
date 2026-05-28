@@ -19,7 +19,7 @@ group "go-services" {
 }
 
 target "service-base" {
-  context    = ".."
+  context    = "."
   dockerfile = "infra/Dockerfile"
   args = {
     VERSION = "${VERSION}"
@@ -54,7 +54,7 @@ target "loadgen" {
 
 target "dashboard-meta" {}
 target "dashboard" {
-  context    = ".."
+  context    = "."
   dockerfile = "infra/Dockerfile.dashboard"
   platforms  = ["linux/amd64", "linux/arm64"]
 }

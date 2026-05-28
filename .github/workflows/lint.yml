@@ -20,13 +20,13 @@ jobs:
           echo "pnpm=$(awk '/^pnpm / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ steps.pnpm-version.outputs.go }}
+          go-version: ${{ steps.tool-versions.outputs.go }}
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ steps.pnpm-version.outputs.node }}
+          node-version: ${{ steps.tool-versions.outputs.node }}
       - uses: pnpm/action-setup@v4
         with:
-          version: ${{ steps.pnpm-version.outputs.pnpm }}
+          version: ${{ steps.tool-versions.outputs.pnpm }}
 
       - name: pnpm install
         working-directory: js

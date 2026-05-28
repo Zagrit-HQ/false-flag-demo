@@ -66,7 +66,7 @@ jobs:
         uses: depot/bake-action@v1
         with:
           files: |
-            ./infra/docker-bake.hcl
+            ./docker-bake.hcl
             ${{ steps.api-meta.outputs.bake-file }}
             ${{ steps.dashboard-meta.outputs.bake-file }}
             ${{ steps.proxy-meta.outputs.bake-file }}
