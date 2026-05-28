@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   GO_VERSION: "1.26.0"
@@ -221,49 +222,21 @@ jobs:
           FALSEFLAG_TEST_DATABASE_URL: ${{ matrix.backend == 'postgres' && 'postgres://falseflag:falseflag@localhost:5432/falseflag?sslmode=disable' || 'sqlite:///tmp/ff-contract/test.db' }}
         run: make contract-test
 
+  build-images:
+    name: build-images
+    uses: ./.github/workflows/build.yml
+
   image-scan:
     name: image-scan
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    needs: build-images
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      # Same key shape as build-images. Whichever job finishes first
-      # writes the cache; the other one's save is a no-op. Both jobs
-      # read from the same warm layers on subsequent runs.
-      - name: cache buildx layers
-        uses: actions/cache@v4
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
         with:
-          path: /tmp/.buildx-cache-scan
-          key: buildx-scan-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('infra/Dockerfile*', 'go.sum', 'js/pnpm-lock.yaml') }}
-          restore-keys: |
-            buildx-scan-${{ runner.os }}-${{ github.ref_name }}-
-            buildx-scan-${{ runner.os }}-main-
-            buildx-${{ runner.os }}-main-
-            buildx-${{ runner.os }}-
-      # Trivy needs to read images from a docker daemon, so this job
-      # builds single-arch amd64 images with type=docker (loadable
-      # into the daemon) instead of the multi-arch cache-only output
-      # that build-images uses. Slice 7b can swap this for a Depot
-      # build that pushes to an ephemeral registry, then have trivy
-      # pull from there.
-      - name: docker buildx bake (amd64, load to daemon)
-        working-directory: infra
-        env:
-          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
-        run: |
-          docker buildx bake \
-            --set "*.platform=linux/amd64" \
-            --set "*.output=type=docker" \
-            --set "*.cache-from=type=local,src=/tmp/.buildx-cache-scan" \
-            --set "*.cache-to=type=local,dest=/tmp/.buildx-cache-scan-new,mode=max" \
-            default
-      - name: rotate buildx cache
-        run: |
-          if [ -d /tmp/.buildx-cache-scan-new ]; then
-            rm -rf /tmp/.buildx-cache-scan
-            mv /tmp/.buildx-cache-scan-new /tmp/.buildx-cache-scan
-          fi
+          build-id: ${{ needs.build-images.outputs.build-id }}
       # --ignore-unfixed: only fail on CVEs that have a fix available;
       # unfixable base-image CVEs aren't actionable in a feature-flag
       # service. Slice 7b inherits the same threshold. Each scan uses
@@ -341,6 +314,7 @@ jobs:
   smoke:
     name: smoke (${{ matrix.backend }})
     runs-on: ubuntu-latest
+    needs: build-images
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -350,6 +324,11 @@ jobs:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
+        with:
+          build-id: ${{ needs.build-images.outputs.build-id }}
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -361,7 +340,7 @@ jobs:
           rm -f "hurl_${HURL_VERSION}_amd64.deb"
           hurl --version
       - name: docker compose up
-        run: docker compose -f "${COMPOSE_FILE}" up -d --build
+        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build
       # Bounded readiness probes for the two endpoints `make smoke` /
       # `make mcp-smoke` rely on. Both scripts only do a single probe
       # before issuing requests so we wait at the workflow level.
@@ -404,6 +383,7 @@ jobs:
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }})
     runs-on: ubuntu-latest
+    needs: build-images
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -413,6 +393,11 @@ jobs:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: depot/setup-action@v1
+      - name: load images from Depot Registry
+        uses: depot/pull-action@v1
+        with:
+          build-id: ${{ needs.build-images.outputs.build-id }}
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -441,7 +426,7 @@ jobs:
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
       - name: docker compose up
-        run: docker compose -f "${COMPOSE_FILE}" up -d --build
+        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build
       - name: wait for api + dashboard
         run: |
           for _ in $(seq 1 60); do

@@ -11,11 +11,11 @@ variable "COMMIT" {
 }
 
 group "default" {
-  targets = ["api", "proxy", "dashboard"]
+  targets = ["api", "proxy", "operator", "mcp", "dashboard"]
 }
 
 group "go-services" {
-  targets = ["api", "proxy", "loadgen"]
+  targets = ["api", "proxy", "operator", "mcp", "loadgen"]
 }
 
 target "service-base" {
@@ -31,6 +31,7 @@ target "service-base" {
 target "api-meta" {}
 target "api" {
   inherits = ["service-base", "api-meta"]
+  tags     = ["ghcr.io/depot/falseflag/api:dev"]
   args = {
     SERVICE = "falseflag-api"
   }
@@ -39,14 +40,34 @@ target "api" {
 target "proxy-meta" {}
 target "proxy" {
   inherits = ["service-base", "proxy-meta"]
+  tags     = ["ghcr.io/depot/falseflag/proxy:dev"]
   args = {
     SERVICE = "falseflag-proxy"
+  }
+}
+
+target "operator-meta" {}
+target "operator" {
+  inherits = ["service-base", "operator-meta"]
+  tags     = ["ghcr.io/depot/falseflag/operator:dev"]
+  args = {
+    SERVICE = "falseflag-operator"
+  }
+}
+
+target "mcp-meta" {}
+target "mcp" {
+  inherits = ["service-base", "mcp-meta"]
+  tags     = ["ghcr.io/depot/falseflag/mcp:dev"]
+  args = {
+    SERVICE = "falseflag-mcp"
   }
 }
 
 target "loadgen-meta" {}
 target "loadgen" {
   inherits = ["service-base", "loadgen-meta"]
+  tags     = ["ghcr.io/depot/falseflag/loadgen:dev"]
   args = {
     SERVICE = "falseflag-loadgen"
   }
@@ -56,5 +77,6 @@ target "dashboard-meta" {}
 target "dashboard" {
   context    = "."
   dockerfile = "infra/Dockerfile.dashboard"
+  tags       = ["ghcr.io/depot/falseflag/dashboard:dev"]
   platforms  = ["linux/amd64", "linux/arm64"]
 }
