@@ -1,0 +1,29 @@
+.git
+.github
+.idea
+
+# Local/editor noise
+.DS_Store
+*.log
+*.tmp
+
+# CI and test-only artifacts
+docs
+tests
+**/*_test.go
+**/test-results
+**/playwright-report
+**/coverage
+
+# Dependency and build outputs are recreated inside Dockerfiles.
+node_modules
+**/node_modules
+js/**/build
+js/**/dist
+js/.turbo
+js/.pnpm-store
+
+# Project metadata not needed by image builds.
+AGENTS.md
+CONTRIBUTING.md
+README.md
