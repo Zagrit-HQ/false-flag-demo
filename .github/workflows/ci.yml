@@ -351,6 +351,8 @@ jobs:
           exit 1
       - name: seed demo dataset
         run: go run ./cmd/falseflag-seed
+      - name: wait for proxy snapshot poll
+        run: sleep 2
       - name: hurl smoke suite
         run: hurl --test --jobs 1 --variable mcp_base_url=http://localhost:8091 tests/hurl/*.hurl
       - name: dump compose logs (on failure)
