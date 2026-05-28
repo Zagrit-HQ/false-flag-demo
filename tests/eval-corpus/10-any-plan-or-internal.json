@@ -1,0 +1,24 @@
+{
+  "id": "any-plan-or-internal",
+  "description": "any predicate fires on the internal-email branch.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "string",
+    "default": "control",
+    "rules": [
+      {
+        "id": "treatment",
+        "when": {
+          "kind": "any",
+          "of": [
+            { "kind": "eq", "attr": "user.plan", "value": "enterprise" },
+            { "kind": "matches", "attr": "user.email", "pattern": ".+@depot\\.dev$" }
+          ]
+        },
+        "value": "treatment"
+      }
+    ]
+  },
+  "context": { "user": { "plan": "free", "email": "kyle@depot.dev" } },
+  "expected": { "value": "treatment", "reason": "rule_matched", "rule_id": "treatment" }
+}

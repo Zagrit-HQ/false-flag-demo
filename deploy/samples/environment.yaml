@@ -1,0 +1,19 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+  namespace: default
+spec:
+  projectSlug: demo
+  slug: prod
+  name: "Production"
+---
+apiVersion: falseflag.dev/v1alpha1
+kind: Environment
+metadata:
+  name: staging
+  namespace: default
+spec:
+  projectSlug: demo
+  slug: staging
+  name: "Staging"

@@ -1,0 +1,24 @@
+{
+  "id": "all-country-plan",
+  "description": "all predicate: country == US AND plan in [pro, enterprise].",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "us-pro",
+        "when": {
+          "kind": "all",
+          "of": [
+            { "kind": "eq", "attr": "user.country", "value": "US" },
+            { "kind": "in", "attr": "user.plan", "values": ["pro", "enterprise"] }
+          ]
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "country": "US", "plan": "pro" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "us-pro" }
+}

@@ -1,0 +1,15 @@
+extends:
+  - [spectral:oas, recommended]
+
+# FalseFlag-specific tweaks to the OpenAPI ruleset. Keep this list
+# short — every disabled rule is a thing we've decided not to enforce,
+# and rules that were never tightened are worth reconsidering yearly.
+rules:
+  # The OpenAPI lives under api/openapi/ in a monorepo; the canonical
+  # licence + terms live at the repo root, not on the spec itself.
+  info-license: off
+  license-url: off
+
+  # The contact block already lists the GitHub URL — Spectral wants an
+  # email, but the team prefers issue-tracker contact for everything.
+  contact-properties: off

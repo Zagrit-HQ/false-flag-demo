@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// EvaluationService evaluates the latest published version of a flag
+// against a context. Trace surfaces a per-predicate explanation.
+service EvaluationService {
+  rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+  rpc EvaluateWithTrace(EvaluateWithTraceRequest) returns (EvaluateWithTraceResponse);
+}
+
+enum DecisionReason {
+  DECISION_REASON_UNSPECIFIED = 0;
+  DECISION_REASON_DEFAULT = 1;
+  DECISION_REASON_RULE_MATCHED = 2;
+  DECISION_REASON_ROLLOUT_IN_BUCKET = 3;
+  DECISION_REASON_ROLLOUT_OUT_OF_BUCKET = 4;
+  DECISION_REASON_TYPE_MISMATCH = 5;
+  DECISION_REASON_ERROR = 6;
+}
+
+message Decision {
+  google.protobuf.Value value = 1;
+  DecisionReason reason = 2;
+  optional string rule_id = 3;
+  int32 version = 4;
+}
+
+message EvaluateRequest {
+  string project_slug = 1;
+  string key = 2;
+  google.protobuf.Struct context = 3;
+}
+
+message EvaluateResponse {
+  Decision decision = 1;
+}
+
+message EvaluateWithTraceRequest {
+  string project_slug = 1;
+  string key = 2;
+  google.protobuf.Struct context = 3;
+}
+
+message EvaluateWithTraceResponse {
+  Decision decision = 1;
+  EvaluationTrace trace = 2;
+}
+
+message EvaluationTrace {
+  repeated TraceRule evaluated_rules = 1;
+  bool default_used = 2;
+  optional string matched_rule_id = 3;
+}
+
+message TraceRule {
+  string rule_id = 1;
+  bool matched = 2;
+  TraceNode predicate = 3;
+  optional string error = 4;
+}
+
+message TraceNode {
+  string kind = 1;
+  optional string attr = 2;
+  google.protobuf.Value attr_value = 3;
+  google.protobuf.Value expected = 4;
+  repeated google.protobuf.Value expected_values = 5;
+  optional string pattern = 6;
+  optional string salt = 7;
+  optional int32 percent = 8;
+  optional int32 bucket = 9;
+  optional string source = 10;
+  bool result = 11;
+  repeated TraceNode children = 12;
+}

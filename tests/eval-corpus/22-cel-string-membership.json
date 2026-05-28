@@ -1,0 +1,21 @@
+{
+  "id": "cel-string-membership",
+  "description": "CEL: ctx.user.plan in ['pro', 'enterprise'] using `in`.",
+  "strategy": "cel",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "paid",
+        "when": {
+          "kind": "cel",
+          "source": "ctx.user.plan in ['pro', 'enterprise']"
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "plan": "enterprise" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "paid" }
+}

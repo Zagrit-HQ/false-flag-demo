@@ -1,0 +1,18 @@
+{
+  "id": "rollout-full-percent",
+  "description": "percent=100 always serves the rule.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "r1",
+        "when": { "kind": "rollout", "attr": "user.id", "salt": "checkout-v2", "percent": 100 },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "id": "u-anyone" } },
+  "expected": { "value": true, "reason": "rollout_in_bucket", "rule_id": "r1" }
+}

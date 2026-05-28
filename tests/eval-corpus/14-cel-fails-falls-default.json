@@ -1,0 +1,21 @@
+{
+  "id": "cel-fails-falls-default",
+  "description": "CEL predicate fails (CA), default is served.",
+  "strategy": "cel",
+  "ir": {
+    "value_type": "string",
+    "default": "basic",
+    "rules": [
+      {
+        "id": "premium",
+        "when": {
+          "kind": "cel",
+          "source": "ctx.user.age >= 21 && ctx.user.country == 'US'"
+        },
+        "value": "premium"
+      }
+    ]
+  },
+  "context": { "user": { "age": 25, "country": "CA" } },
+  "expected": { "value": "basic", "reason": "default" }
+}

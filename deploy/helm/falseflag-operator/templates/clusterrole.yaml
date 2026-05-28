@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "falseflag-operator.fullname" . }}
+  labels:
+    {{- include "falseflag-operator.labels" . | nindent 4 }}
+rules:
+  # Permissive in slice 4 — demo-quality only. A real chart would
+  # narrow this to specific resources + verbs.
+  - apiGroups: ["falseflag.dev"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["falseflag.dev"]
+    resources: ["*/status", "*/finalizers"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]

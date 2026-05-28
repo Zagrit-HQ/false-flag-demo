@@ -1,0 +1,25 @@
+{
+  "name": "@falseflag/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "falseflag": "./bin/falseflag.mjs"
+  },
+  "files": ["dist", "bin"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@falseflag/generated-client": "workspace:*",
+    "commander": "12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "typescript": "5.8.3",
+    "vitest": "3.1.2"
+  }
+}

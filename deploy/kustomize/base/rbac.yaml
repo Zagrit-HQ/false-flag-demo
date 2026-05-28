@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falseflag-operator
+  namespace: falseflag-system
+  labels:
+    app.kubernetes.io/name: falseflag-operator
+    app.kubernetes.io/part-of: falseflag
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: falseflag-operator
+  labels:
+    app.kubernetes.io/name: falseflag-operator
+    app.kubernetes.io/part-of: falseflag
+rules:
+  - apiGroups: ["falseflag.dev"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["falseflag.dev"]
+    resources: ["*/status", "*/finalizers"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: falseflag-operator
+  labels:
+    app.kubernetes.io/name: falseflag-operator
+    app.kubernetes.io/part-of: falseflag
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: falseflag-operator
+subjects:
+  - kind: ServiceAccount
+    name: falseflag-operator
+    namespace: falseflag-system

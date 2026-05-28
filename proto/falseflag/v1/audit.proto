@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// AuditService searches the audit log.
+service AuditService {
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+}
+
+message AuditEvent {
+  string id = 1;
+  optional string project_id = 2;
+  optional string flag_id = 3;
+  string action = 4;
+  optional string actor = 5;
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListAuditEventsRequest {
+  string project_slug = 1;
+  optional string action = 2;
+  optional string actor = 3;
+  optional google.protobuf.Timestamp from = 4;
+  optional google.protobuf.Timestamp to = 5;
+  optional string cursor = 6;
+  int32 limit = 7;
+}
+
+message ListAuditEventsResponse {
+  repeated AuditEvent items = 1;
+  optional string next_cursor = 2;
+}

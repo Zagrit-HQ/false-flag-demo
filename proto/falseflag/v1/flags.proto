@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "falseflag/v1/projects.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// FlagsService manages flags and their versions for a project.
+service FlagsService {
+  rpc ListFlags(ListFlagsRequest) returns (ListFlagsResponse);
+  rpc GetFlag(GetFlagRequest) returns (GetFlagResponse);
+  rpc CreateFlag(CreateFlagRequest) returns (CreateFlagResponse);
+  rpc PublishFlagVersion(PublishFlagVersionRequest) returns (PublishFlagVersionResponse);
+  rpc ListFlagVersions(ListFlagVersionsRequest) returns (ListFlagVersionsResponse);
+}
+
+enum ValueType {
+  VALUE_TYPE_UNSPECIFIED = 0;
+  VALUE_TYPE_BOOLEAN = 1;
+  VALUE_TYPE_STRING = 2;
+  VALUE_TYPE_NUMBER = 3;
+  VALUE_TYPE_OBJECT = 4;
+}
+
+message Flag {
+  string id = 1;
+  string project_id = 2;
+  string key = 3;
+  string name = 4;
+  string description = 5;
+  ValueType value_type = 6;
+  google.protobuf.Value default_value = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message FlagVersion {
+  string id = 1;
+  string flag_id = 2;
+  int32 version = 3;
+  Strategy strategy = 4;
+  google.protobuf.Struct source = 5;
+  google.protobuf.Struct compiled = 6;
+  google.protobuf.Timestamp published_at = 7;
+  // Raw author input (e.g. .ts/.cel/.json file contents). Empty for
+  // versions written before the source_text column existed.
+  string source_text = 8;
+}
+
+message ListFlagsRequest {
+  string project_slug = 1;
+}
+message ListFlagsResponse {
+  repeated Flag items = 1;
+}
+
+message GetFlagRequest {
+  string project_slug = 1;
+  string key = 2;
+}
+message GetFlagResponse {
+  Flag flag = 1;
+  FlagVersion latest_version = 2;
+}
+
+message CreateFlagRequest {
+  string project_slug = 1;
+  string key = 2;
+  string name = 3;
+  string description = 4;
+  ValueType value_type = 5;
+  google.protobuf.Value default_value = 6;
+}
+message CreateFlagResponse {
+  Flag flag = 1;
+}
+
+message PublishFlagVersionRequest {
+  string project_slug = 1;
+  string key = 2;
+  Strategy strategy = 3;
+  google.protobuf.Struct source = 4;
+  // Optional raw author input. When present and strategy=typescript,
+  // the server treats this as authoritative and re-compiles it; the
+  // supplied `source` (the CLI's pre-compiled IR) is preserved for
+  // backwards compatibility but is not the source of truth.
+  string source_text = 5;
+}
+message PublishFlagVersionResponse {
+  FlagVersion version = 1;
+}
+
+message ListFlagVersionsRequest {
+  string project_slug = 1;
+  string key = 2;
+}
+message ListFlagVersionsResponse {
+  repeated FlagVersion items = 1;
+}

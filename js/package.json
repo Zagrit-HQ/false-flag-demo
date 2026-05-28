@@ -1,0 +1,20 @@
+{
+  "name": "falseflag-js",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "generate": "turbo run generate",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "turbo": "2.5.0",
+    "typescript": "5.8.3",
+    "vitest": "3.1.2"
+  }
+}

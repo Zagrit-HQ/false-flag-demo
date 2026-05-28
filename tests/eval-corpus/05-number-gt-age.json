@@ -1,0 +1,14 @@
+{
+  "id": "number-gt-age",
+  "description": "Numeric gt predicate fires at age 21.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "number",
+    "default": 0,
+    "rules": [
+      { "id": "r1", "when": { "kind": "gt", "attr": "user.age", "value": 18 }, "value": 100 }
+    ]
+  },
+  "context": { "user": { "age": 21 } },
+  "expected": { "value": 100, "reason": "rule_matched", "rule_id": "r1" }
+}

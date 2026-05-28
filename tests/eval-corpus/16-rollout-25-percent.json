@@ -1,0 +1,23 @@
+{
+  "id": "rollout-25-percent",
+  "description": "25% rollout fires for a known-in-bucket user id. Bucket is FNV-1a stable across runtimes.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "r1",
+        "when": {
+          "kind": "rollout",
+          "attr": "user.id",
+          "salt": "rollout-25",
+          "percent": 25
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "id": "u-rollout-25-in" } },
+  "expected": { "value": false, "reason": "default" }
+}

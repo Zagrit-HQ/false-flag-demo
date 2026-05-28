@@ -1,0 +1,18 @@
+{
+  "id": "string-neq",
+  "description": "neq predicate fires when the value differs.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "string",
+    "default": "default-region",
+    "rules": [
+      {
+        "id": "non-eu",
+        "when": { "kind": "neq", "attr": "user.region", "value": "eu" },
+        "value": "non-eu"
+      }
+    ]
+  },
+  "context": { "user": { "region": "us-west" } },
+  "expected": { "value": "non-eu", "reason": "rule_matched", "rule_id": "non-eu" }
+}

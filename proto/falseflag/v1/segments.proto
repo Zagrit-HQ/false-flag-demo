@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// SegmentsService manages project-scoped reusable predicates.
+service SegmentsService {
+  rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+  rpc GetSegment(GetSegmentRequest) returns (GetSegmentResponse);
+  rpc CreateSegment(CreateSegmentRequest) returns (CreateSegmentResponse);
+  rpc UpdateSegment(UpdateSegmentRequest) returns (UpdateSegmentResponse);
+}
+
+message Segment {
+  string id = 1;
+  string project_id = 2;
+  string key = 3;
+  string name = 4;
+  string description = 5;
+  google.protobuf.Struct predicate = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListSegmentsRequest {
+  string project_slug = 1;
+}
+message ListSegmentsResponse {
+  repeated Segment items = 1;
+}
+
+message GetSegmentRequest {
+  string project_slug = 1;
+  string seg_key = 2;
+}
+message GetSegmentResponse {
+  Segment segment = 1;
+}
+
+message CreateSegmentRequest {
+  string project_slug = 1;
+  string key = 2;
+  string name = 3;
+  string description = 4;
+  google.protobuf.Struct predicate = 5;
+}
+message CreateSegmentResponse {
+  Segment segment = 1;
+}
+
+message UpdateSegmentRequest {
+  string project_slug = 1;
+  string seg_key = 2;
+  string name = 3;
+  string description = 4;
+  google.protobuf.Struct predicate = 5;
+}
+message UpdateSegmentResponse {
+  Segment segment = 1;
+}

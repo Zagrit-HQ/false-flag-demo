@@ -1,0 +1,25 @@
+{
+  "id": "typescript-dsl-output",
+  "description": "TypeScript-DSL emitted IR with eq + or composition. Compiled server-side from source_text via esbuild + goja.",
+  "strategy": "typescript",
+  "source_text": "import { FalseFlag as ff } from \"@falseflag/config\";\n\nexport default ff.flag({\n  value_type: \"object\",\n  default: { theme: \"auto\" },\n  rules: [\n    ff.rule(\n      \"dark-mode\",\n      ff.any(\n        ff.eq(\"user.prefers\", \"dark\"),\n        ff.eq(\"system.color_scheme\", \"dark\"),\n      ),\n      { theme: \"dark\" },\n    ),\n  ],\n});\n",
+  "ir": {
+    "value_type": "object",
+    "default": { "theme": "auto" },
+    "rules": [
+      {
+        "id": "dark-mode",
+        "when": {
+          "kind": "any",
+          "of": [
+            { "kind": "eq", "attr": "user.prefers", "value": "dark" },
+            { "kind": "eq", "attr": "system.color_scheme", "value": "dark" }
+          ]
+        },
+        "value": { "theme": "dark" }
+      }
+    ]
+  },
+  "context": { "user": { "prefers": "light" }, "system": { "color_scheme": "dark" } },
+  "expected": { "value": { "theme": "dark" }, "reason": "rule_matched", "rule_id": "dark-mode" }
+}

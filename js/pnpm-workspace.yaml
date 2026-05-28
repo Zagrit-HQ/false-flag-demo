@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Pin @remix-run/router past CVE-2026-22029 (XSS via open redirect). Remix
+# 2.17.x bundles router 1.23.0; 1.23.2 carries the patch and is API-compat.
+overrides:
+  '@remix-run/router': 1.23.2

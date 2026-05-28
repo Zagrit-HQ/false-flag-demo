@@ -1,0 +1,631 @@
+name: ci-baseline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ci-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.0"
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.0.0"
+  # Hurl 4.x semantics — `contains` matches array members. Hurl 5.x
+  # tightened `contains` to substring-only and split out `includes` for
+  # arrays. The slice 1–6 test corpus was written against 4.x.
+  HURL_VERSION: "4.3.0"
+  KIND_NODE_IMAGE: "kindest/node:v1.31.4"
+  KUBECTL_VERSION: "v1.31.4"
+  HELM_VERSION: "v3.16.4"
+  PLAYWRIGHT_VERSION: "1.49.1"
+
+jobs:
+  generate-check:
+    name: generate-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: make generate-check
+        run: make generate-check
+
+  lint-go:
+    name: lint-go
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: make lint-go
+        run: make lint-go
+
+  lint-openapi:
+    name: lint-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: install spectral
+        run: npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION}"
+        env:
+          SPECTRAL_VERSION: "6.14.2"
+      - name: spectral lint
+        # github-actions format emits ::warning / ::error annotations
+        # that surface in the PR's Files Changed view.
+        run: |
+          spectral lint \
+            --ruleset .spectral.yaml \
+            --format github-actions \
+            api/openapi/openapi.yaml
+
+  lint-js:
+    name: lint-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: make lint-js
+        run: make lint-js
+
+  typecheck-js:
+    name: typecheck-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: pnpm typecheck
+        working-directory: js
+        run: pnpm typecheck
+
+  test-go:
+    name: test-go
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: make test-go
+        run: make test-go
+
+  test-go-race:
+    name: test-go-race (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [ postgres, sqlite ]
+    services:
+      # GitHub Actions services aren't matrix-conditional; the
+      # Postgres container starts for both entries and the SQLite
+      # entry simply ignores it.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: falseflag
+          POSTGRES_PASSWORD: falseflag
+          POSTGRES_DB: falseflag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U falseflag -d falseflag"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: wait for postgres
+        if: matrix.backend == 'postgres'
+        run: |
+          for _ in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U falseflag >/dev/null 2>&1; then
+              echo "postgres ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "postgres never became ready"; exit 1
+      # Race detector scoped to the packages that actually carry
+      # shared mutable state under concurrent access: the snapshot
+      # polling loop in sdkgo, the in-memory eval engine, and the
+      # repository layer that backs both REST and Connect handlers.
+      # Running the full ./... under -race triples Go test wall time
+      # for little additional signal.
+      #
+      # The store/integration_test parametrizes over both backends via
+      # forEachBackend: the SQLite subtest runs unconditionally and the
+      # Postgres subtest is gated on FALSEFLAG_TEST_DATABASE_URL — set
+      # only for the postgres matrix entry below.
+      - name: go test -race
+        env:
+          FALSEFLAG_TEST_DATABASE_URL: ${{ matrix.backend == 'postgres' && 'postgres://falseflag:falseflag@localhost:5432/falseflag?sslmode=disable' || '' }}
+        run: go test -race ./internal/eval/... ./internal/sdkgo/... ./internal/store/...
+
+  test-js:
+    name: test-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make test-js
+        run: make test-js
+
+  build-js:
+    name: build-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make build-js
+        run: make build-js
+
+  conformance:
+    name: conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: make conformance
+        run: make conformance
+
+  contract-test:
+    name: contract-test (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [ postgres, sqlite ]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: falseflag
+          POSTGRES_PASSWORD: falseflag
+          POSTGRES_DB: falseflag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U falseflag -d falseflag"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      # The service container's health-check is GitHub's own; this
+      # extra poll guards the rare case where the container is
+      # reported "started" before pg_isready inside it succeeds. Not
+      # an artificial sleep — bounded readiness check with a real exit
+      # condition.
+      - name: wait for postgres
+        if: matrix.backend == 'postgres'
+        run: |
+          for _ in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U falseflag >/dev/null 2>&1; then
+              echo "postgres ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "postgres never became ready"; exit 1
+      - name: prepare sqlite scratch dir
+        if: matrix.backend == 'sqlite'
+        run: mkdir -p /tmp/ff-contract && rm -f /tmp/ff-contract/*
+      - name: make contract-test
+        env:
+          FALSEFLAG_TEST_DATABASE_URL: ${{ matrix.backend == 'postgres' && 'postgres://falseflag:falseflag@localhost:5432/falseflag?sslmode=disable' || 'sqlite:///tmp/ff-contract/test.db' }}
+        run: make contract-test
+
+  build-images:
+    name: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      # Buildx local cache. Branch-keyed so the first PR push pays a
+      # cold cache, subsequent runs on the same ref hit warm. main is
+      # the universal restore-key fallback.
+      - name: cache buildx layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('infra/Dockerfile*', 'go.sum', 'js/pnpm-lock.yaml') }}
+          restore-keys: |
+            buildx-${{ runner.os }}-${{ github.ref_name }}-
+            buildx-${{ runner.os }}-main-
+            buildx-${{ runner.os }}-
+      - name: bake-print (sanity)
+        run: make bake-print
+      # `make bake` invokes `docker buildx bake` with no output flag.
+      # We override per-target output to `cacheonly` so buildx still
+      # produces every layer without trying to load the result into
+      # the docker daemon or push to a registry (not part of slice
+      # 7a). Platforms come from docker-bake.hcl (multi-arch); cache
+      # rotation pattern from buildx docs avoids /tmp/.buildx-cache
+      # growing unboundedly.
+      - name: docker buildx bake
+        working-directory: infra
+        env:
+          # Buildx 0.18+ tightened entitlements: bake configs that mount
+          # /tmp/.buildx-cache or read parent dirs need explicit opt-in.
+          # The opt-in flag isn't read from env; disable the check
+          # globally so the bake plumbing stays portable. Slice 7b's
+          # depot bake doesn't hit this path.
+          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
+        run: |
+          docker buildx bake \
+            --set "*.cache-from=type=local,src=/tmp/.buildx-cache" \
+            --set "*.cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max" \
+            --set "*.output=type=cacheonly" \
+            default
+      - name: rotate buildx cache
+        run: |
+          if [ -d /tmp/.buildx-cache-new ]; then
+            rm -rf /tmp/.buildx-cache
+            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          fi
+
+  image-scan:
+    name: image-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Same key shape as build-images. Whichever job finishes first
+      # writes the cache; the other one's save is a no-op. Both jobs
+      # read from the same warm layers on subsequent runs.
+      - name: cache buildx layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache-scan
+          key: buildx-scan-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('infra/Dockerfile*', 'go.sum', 'js/pnpm-lock.yaml') }}
+          restore-keys: |
+            buildx-scan-${{ runner.os }}-${{ github.ref_name }}-
+            buildx-scan-${{ runner.os }}-main-
+            buildx-${{ runner.os }}-main-
+            buildx-${{ runner.os }}-
+      # Trivy needs to read images from a docker daemon, so this job
+      # builds single-arch amd64 images with type=docker (loadable
+      # into the daemon) instead of the multi-arch cache-only output
+      # that build-images uses. Slice 7b can swap this for a Depot
+      # build that pushes to an ephemeral registry, then have trivy
+      # pull from there.
+      - name: docker buildx bake (amd64, load to daemon)
+        working-directory: infra
+        env:
+          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
+        run: |
+          docker buildx bake \
+            --set "*.platform=linux/amd64" \
+            --set "*.output=type=docker" \
+            --set "*.cache-from=type=local,src=/tmp/.buildx-cache-scan" \
+            --set "*.cache-to=type=local,dest=/tmp/.buildx-cache-scan-new,mode=max" \
+            default
+      - name: rotate buildx cache
+        run: |
+          if [ -d /tmp/.buildx-cache-scan-new ]; then
+            rm -rf /tmp/.buildx-cache-scan
+            mv /tmp/.buildx-cache-scan-new /tmp/.buildx-cache-scan
+          fi
+      # --ignore-unfixed: only fail on CVEs that have a fix available;
+      # unfixable base-image CVEs aren't actionable in a feature-flag
+      # service. Slice 7b inherits the same threshold. Each scan uses
+      # continue-on-error so devs see every image's CVEs in one log;
+      # the aggregator step fails the job if any scan reported issues.
+      - name: trivy image scan (api)
+        id: trivy_api
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/api:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (proxy)
+        id: trivy_proxy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/proxy:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (operator)
+        id: trivy_operator
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/operator:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (mcp)
+        id: trivy_mcp
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/mcp:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: trivy image scan (dashboard)
+        id: trivy_dashboard
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/depot/falseflag/dashboard:dev
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: fail if any scan reported vulnerabilities
+        run: |
+          set -euo pipefail
+          fail=0
+          for name in api proxy operator mcp dashboard; do
+            case "${name}" in
+              api)       outcome="${{ steps.trivy_api.outcome }}";;
+              proxy)     outcome="${{ steps.trivy_proxy.outcome }}";;
+              operator)  outcome="${{ steps.trivy_operator.outcome }}";;
+              mcp)       outcome="${{ steps.trivy_mcp.outcome }}";;
+              dashboard) outcome="${{ steps.trivy_dashboard.outcome }}";;
+            esac
+            echo "${name}: ${outcome}"
+            if [ "${outcome}" != "success" ]; then
+              fail=1
+            fi
+          done
+          exit "${fail}"
+
+  smoke:
+    name: smoke (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [ postgres, sqlite ]
+    env:
+      COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: install hurl
+        run: |
+          curl -fsSLO "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+          sudo dpkg -i "hurl_${HURL_VERSION}_amd64.deb"
+          rm -f "hurl_${HURL_VERSION}_amd64.deb"
+          hurl --version
+      - name: docker compose up
+        run: docker compose -f "${COMPOSE_FILE}" up -d --build
+      # Bounded readiness probes for the two endpoints `make smoke` /
+      # `make mcp-smoke` rely on. Both scripts only do a single probe
+      # before issuing requests so we wait at the workflow level.
+      - name: wait for api + mcp healthz
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null \
+            && curl -fsS http://127.0.0.1:8092/healthz >/dev/null; then
+              echo "stack ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "stack never became ready"
+          docker compose -f "${COMPOSE_FILE}" ps
+          exit 1
+      # smoke.sh handles seeding and proxy restart internally for both
+      # backends. make smoke-sqlite is the SQLite entry point; make
+      # smoke is the Postgres one.
+      - name: make smoke
+        env:
+          FALSEFLAG_BACKEND: ${{ matrix.backend }}
+          FALSEFLAG_COMPOSE_FILE: ${{ env.COMPOSE_FILE }}
+        run: ${{ matrix.backend == 'sqlite' && 'make smoke-sqlite' || 'make smoke' }}
+      - name: make mcp-smoke
+        run: make mcp-smoke
+      - name: dump compose logs (on failure)
+        if: failure()
+        run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
+      - name: upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-smoke-${{ matrix.backend }}
+          path: compose-logs.txt
+          if-no-files-found: ignore
+      - name: docker compose down
+        if: always()
+        run: docker compose -f "${COMPOSE_FILE}" down -v
+
+  dashboard-e2e:
+    name: dashboard-e2e (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [ postgres, sqlite ]
+    env:
+      COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: cache playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: install playwright chromium
+        working-directory: js
+        run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+      - name: docker compose up
+        run: docker compose -f "${COMPOSE_FILE}" up -d --build
+      - name: wait for api + dashboard
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null \
+            && curl -fsS http://127.0.0.1:3030 >/dev/null; then
+              echo "stack ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "stack never became ready"
+          docker compose -f "${COMPOSE_FILE}" ps
+          exit 1
+      - name: make seed
+        run: make seed
+      - name: make dashboard-e2e
+        env:
+          FALSEFLAG_DASHBOARD_URL: http://127.0.0.1:3030
+          FALSEFLAG_API_BASE_URL: http://127.0.0.1:8080
+        run: make dashboard-e2e
+      - name: dump compose logs (on failure)
+        if: failure()
+        run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
+      - name: upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-dashboard-e2e-${{ matrix.backend }}
+          path: compose-logs.txt
+          if-no-files-found: ignore
+      - name: docker compose down
+        if: always()
+        run: docker compose -f "${COMPOSE_FILE}" down -v

@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// ProjectsService manages projects. Slice-3 parity with the REST
+// surface at /v1/projects.
+service ProjectsService {
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+}
+
+// EnvironmentsService manages per-project environments. In slice 3
+// environments are reference data; slice 4 will reconcile per-env
+// flag overrides through the operator.
+service EnvironmentsService {
+  rpc ListEnvironments(ListEnvironmentsRequest) returns (ListEnvironmentsResponse);
+  rpc GetEnvironment(GetEnvironmentRequest) returns (GetEnvironmentResponse);
+  rpc CreateEnvironment(CreateEnvironmentRequest) returns (CreateEnvironmentResponse);
+}
+
+enum Strategy {
+  STRATEGY_UNSPECIFIED = 0;
+  STRATEGY_JSON = 1;
+  STRATEGY_CEL = 2;
+  STRATEGY_TYPESCRIPT = 3;
+}
+
+message Project {
+  string id = 1;
+  string slug = 2;
+  string display_name = 3;
+  Strategy config_strategy = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message Environment {
+  string id = 1;
+  string project_id = 2;
+  string slug = 3;
+  string name = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListProjectsRequest {}
+message ListProjectsResponse {
+  repeated Project items = 1;
+}
+
+message GetProjectRequest {
+  string slug = 1;
+}
+message GetProjectResponse {
+  Project project = 1;
+}
+
+message CreateProjectRequest {
+  string slug = 1;
+  string display_name = 2;
+  Strategy config_strategy = 3;
+}
+message CreateProjectResponse {
+  Project project = 1;
+}
+
+message ListEnvironmentsRequest {
+  string project_slug = 1;
+}
+message ListEnvironmentsResponse {
+  repeated Environment items = 1;
+}
+
+message GetEnvironmentRequest {
+  string project_slug = 1;
+  string env_slug = 2;
+}
+message GetEnvironmentResponse {
+  Environment environment = 1;
+}
+
+message CreateEnvironmentRequest {
+  string project_slug = 1;
+  string slug = 2;
+  string name = 3;
+}
+message CreateEnvironmentResponse {
+  Environment environment = 1;
+}

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: falseflag-operator
+description: Kubernetes operator for the FalseFlag feature flag control plane
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - feature-flags
+  - operator
+  - kubernetes
+  - falseflag
+sources:
+  - https://github.com/depot/falseflag
+maintainers:
+  - name: FalseFlag

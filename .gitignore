@@ -1,0 +1,21 @@
+.idea/
+.DS_Store
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+.cache/
+.remix/
+.vite/
+*.log
+
+# Playwright
+test-results/
+playwright-report/
+
+
+# Local environment overrides
+.env
+.env.local
+.claude/
