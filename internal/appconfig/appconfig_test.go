@@ -1,6 +1,9 @@
 package appconfig
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestLoadAPI_Defaults(t *testing.T) {
 	t.Setenv("FALSEFLAG_API_ADDR", "")
@@ -44,12 +47,34 @@ func TestLoadAPI_EnvOverride(t *testing.T) {
 
 func TestLoadProxy_Defaults(t *testing.T) {
 	t.Setenv("FALSEFLAG_PROXY_ADDR", "")
+	t.Setenv("FALSEFLAG_PROXY_POLL_INTERVAL", "")
 	cfg, err := LoadProxy()
 	if err != nil {
 		t.Fatalf("LoadProxy returned error: %v", err)
 	}
 	if cfg.Addr != ":8081" {
 		t.Errorf("Addr = %q, want :8081", cfg.Addr)
+	}
+	if cfg.PollInterval != 0 {
+		t.Errorf("PollInterval = %s, want SDK default marker 0", cfg.PollInterval)
+	}
+}
+
+func TestLoadProxy_PollInterval(t *testing.T) {
+	t.Setenv("FALSEFLAG_PROXY_POLL_INTERVAL", "250ms")
+	cfg, err := LoadProxy()
+	if err != nil {
+		t.Fatalf("LoadProxy returned error: %v", err)
+	}
+	if cfg.PollInterval != 250*time.Millisecond {
+		t.Errorf("PollInterval = %s, want 250ms", cfg.PollInterval)
+	}
+}
+
+func TestLoadProxy_InvalidPollInterval(t *testing.T) {
+	t.Setenv("FALSEFLAG_PROXY_POLL_INTERVAL", "soon")
+	if _, err := LoadProxy(); err == nil {
+		t.Fatal("expected invalid poll interval to return an error")
 	}
 }
 

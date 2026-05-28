@@ -46,9 +46,10 @@ func New(_ context.Context, cfg appconfig.ProxyConfig, log *slog.Logger) (*Proxy
 	p := &Proxy{cfg: cfg, log: log}
 	if cfg.ProjectSlug != "" && cfg.APIBaseURL != "" {
 		client, err := sdkgo.NewClient(sdkgo.Options{
-			BaseURL:     cfg.APIBaseURL,
-			ProjectSlug: cfg.ProjectSlug,
-			Logger:      log,
+			BaseURL:      cfg.APIBaseURL,
+			ProjectSlug:  cfg.ProjectSlug,
+			PollInterval: cfg.PollInterval,
+			Logger:       log,
 		})
 		if err != nil {
 			return nil, err

@@ -3,6 +3,7 @@ package appconfig
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestGetEnv_Table(t *testing.T) {
@@ -110,14 +111,17 @@ func TestLoadProxy_Variants(t *testing.T) {
 		addr     string
 		base     string
 		slug     string
+		poll     string
 		wantAddr string
 		wantBase string
 		wantSlug string
+		wantPoll time.Duration
 	}{
-		{"defaults", "", "", "", ":8081", "http://localhost:8080", ""},
-		{"slug", "", "", "demo", ":8081", "http://localhost:8080", "demo"},
-		{"base", "", "http://api.example.com", "", ":8081", "http://api.example.com", ""},
-		{"all", ":9081", "http://api", "x", ":9081", "http://api", "x"},
+		{"defaults", "", "", "", "", ":8081", "http://localhost:8080", "", 0},
+		{"slug", "", "", "demo", "", ":8081", "http://localhost:8080", "demo", 0},
+		{"base", "", "http://api.example.com", "", "", ":8081", "http://api.example.com", "", 0},
+		{"poll", "", "", "", "500ms", ":8081", "http://localhost:8080", "", 500 * time.Millisecond},
+		{"all", ":9081", "http://api", "x", "2s", ":9081", "http://api", "x", 2 * time.Second},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -125,11 +129,12 @@ func TestLoadProxy_Variants(t *testing.T) {
 			t.Setenv("FALSEFLAG_PROXY_ADDR", tc.addr)
 			t.Setenv("FALSEFLAG_API_BASE_URL", tc.base)
 			t.Setenv("FALSEFLAG_PROXY_PROJECT_SLUG", tc.slug)
+			t.Setenv("FALSEFLAG_PROXY_POLL_INTERVAL", tc.poll)
 			cfg, err := LoadProxy()
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.Addr != tc.wantAddr || cfg.APIBaseURL != tc.wantBase || cfg.ProjectSlug != tc.wantSlug {
+			if cfg.Addr != tc.wantAddr || cfg.APIBaseURL != tc.wantBase || cfg.ProjectSlug != tc.wantSlug || cfg.PollInterval != tc.wantPoll {
 				t.Errorf("got %+v", cfg)
 			}
 		})

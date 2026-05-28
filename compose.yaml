@@ -73,6 +73,7 @@ services:
       # `make seed`. Empty means "no project" — the proxy boots but
       # /v1/evaluate returns 503.
       FALSEFLAG_PROXY_PROJECT_SLUG: "${FALSEFLAG_PROXY_PROJECT_SLUG:-acme-web}"
+      FALSEFLAG_PROXY_POLL_INTERVAL: "${FALSEFLAG_PROXY_POLL_INTERVAL:-1s}"
       LOG_LEVEL: info
     ports:
       - "8081:8081"

@@ -105,8 +105,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -128,8 +126,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -155,8 +151,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -319,9 +313,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [ postgres, sqlite ]
-    env:
-      COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
+        include:
+          - backend: postgres
+            compose-file: compose.yaml
+          - backend: sqlite
+            compose-file: compose.sqlite.yaml
     steps:
       - uses: actions/checkout@v4
       - uses: depot/setup-action@v1
@@ -340,10 +336,7 @@ jobs:
           rm -f "hurl_${HURL_VERSION}_amd64.deb"
           hurl --version
       - name: docker compose up
-        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build
-      # Bounded readiness probes for the two endpoints `make smoke` /
-      # `make mcp-smoke` rely on. Both scripts only do a single probe
-      # before issuing requests so we wait at the workflow level.
+        run: docker compose -f "${{ matrix.compose-file }}" up -d --no-build
       - name: wait for api + mcp healthz
         run: |
           for _ in $(seq 1 60); do
@@ -354,21 +347,15 @@ jobs:
             sleep 2
           done
           echo "stack never became ready"
-          docker compose -f "${COMPOSE_FILE}" ps
+          docker compose -f "${{ matrix.compose-file }}" ps
           exit 1
-      # smoke.sh handles seeding and proxy restart internally for both
-      # backends. make smoke-sqlite is the SQLite entry point; make
-      # smoke is the Postgres one.
-      - name: make smoke
-        env:
-          FALSEFLAG_BACKEND: ${{ matrix.backend }}
-          FALSEFLAG_COMPOSE_FILE: ${{ env.COMPOSE_FILE }}
-        run: ${{ matrix.backend == 'sqlite' && 'make smoke-sqlite' || 'make smoke' }}
-      - name: make mcp-smoke
-        run: make mcp-smoke
+      - name: seed demo dataset
+        run: go run ./cmd/falseflag-seed
+      - name: hurl smoke suite
+        run: hurl --test --jobs 1 --variable mcp_base_url=http://localhost:8091 tests/hurl/*.hurl
       - name: dump compose logs (on failure)
         if: failure()
-        run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
+        run: docker compose -f "${{ matrix.compose-file }}" logs > compose-logs.txt
       - name: upload compose logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -376,10 +363,6 @@ jobs:
           name: compose-logs-smoke-${{ matrix.backend }}
           path: compose-logs.txt
           if-no-files-found: ignore
-      - name: docker compose down
-        if: always()
-        run: docker compose -f "${COMPOSE_FILE}" down -v
-
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }})
     runs-on: ubuntu-latest
@@ -403,8 +386,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

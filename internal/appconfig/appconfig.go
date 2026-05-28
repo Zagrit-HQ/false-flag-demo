@@ -11,6 +11,7 @@ package appconfig
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 // APIConfig is the runtime config for cmd/falseflag-api.
@@ -30,6 +31,9 @@ type ProxyConfig struct {
 	// "no_project" so the binary is debuggable in compose without
 	// failing fast.
 	ProjectSlug string // FALSEFLAG_PROXY_PROJECT_SLUG, optional
+	// PollInterval controls how often the proxy refreshes the cached
+	// snapshot. Empty uses the SDK default.
+	PollInterval time.Duration // FALSEFLAG_PROXY_POLL_INTERVAL, optional duration
 }
 
 // OperatorConfig is the runtime config for cmd/falseflag-operator.
@@ -76,10 +80,15 @@ func LoadAPI() (APIConfig, error) {
 
 // LoadProxy reads ProxyConfig from the environment.
 func LoadProxy() (ProxyConfig, error) {
+	pollInterval, err := getEnvDuration("FALSEFLAG_PROXY_POLL_INTERVAL", 0)
+	if err != nil {
+		return ProxyConfig{}, err
+	}
 	return ProxyConfig{
-		Addr:        getEnv("FALSEFLAG_PROXY_ADDR", ":8081"),
-		APIBaseURL:  getEnv("FALSEFLAG_API_BASE_URL", "http://localhost:8080"),
-		ProjectSlug: os.Getenv("FALSEFLAG_PROXY_PROJECT_SLUG"),
+		Addr:         getEnv("FALSEFLAG_PROXY_ADDR", ":8081"),
+		APIBaseURL:   getEnv("FALSEFLAG_API_BASE_URL", "http://localhost:8080"),
+		ProjectSlug:  os.Getenv("FALSEFLAG_PROXY_PROJECT_SLUG"),
+		PollInterval: pollInterval,
 	}, nil
 }
 
@@ -121,4 +130,12 @@ func getEnvBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return parsed
+}
+
+func getEnvDuration(key string, fallback time.Duration) (time.Duration, error) {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback, nil
+	}
+	return time.ParseDuration(v)
 }

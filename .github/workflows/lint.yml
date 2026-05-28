@@ -17,7 +17,6 @@ jobs:
         run: |
           echo "node=$(awk '/^nodejs / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
           echo "go=$(awk '/^golang / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
-          echo "pnpm=$(awk '/^pnpm / {print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.tool-versions.outputs.go }}
@@ -25,8 +24,6 @@ jobs:
         with:
           node-version: ${{ steps.tool-versions.outputs.node }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ steps.tool-versions.outputs.pnpm }}
 
       - name: pnpm install
         working-directory: js

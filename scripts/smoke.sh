@@ -58,11 +58,7 @@ esac
 echo "smoke: seeding demo dataset (proxy needs acme-web for /readyz)"
 go run ./cmd/falseflag-seed >/dev/null
 
-# The proxy polls the API on a 10s interval; if it started before the
-# seed ran (the common case) its cached snapshot is stale. Restart so
-# its first poll picks up the seeded acme-web project immediately.
-echo "smoke: restarting proxy so it picks up the fresh seed"
-docker compose -f "${COMPOSE_FILE}" restart proxy >/dev/null
+echo "smoke: waiting for proxy to pick up the fresh seed"
 for i in $(seq 1 30); do
   if curl -fsS -o /dev/null "http://localhost:8081/readyz"; then
     break
