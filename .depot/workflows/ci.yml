@@ -30,6 +30,10 @@ env:
   HELM_VERSION: "v3.16.4"
   PLAYWRIGHT_VERSION: "1.49.1"
 jobs:
+  lint:
+    name: lint
+    uses: ./.depot/workflows/lint.yml
+
   test-go:
     name: test-go
     runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
@@ -210,89 +214,38 @@ jobs:
     name: build-images
     uses: ./.depot/workflows/build.yml
   image-scan:
-    name: image-scan
+    name: image-scan (${{ matrix.bake-target }})
     runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     needs: build-images
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        bake-target: [api, proxy, dashboard]
     steps:
       - uses: depot/setup-action@v1
       - name: load images from Depot Registry
         uses: depot/pull-action@v1
         with:
           build-id: ${{ needs.build-images.outputs.build-id }}
-      # --ignore-unfixed: only fail on CVEs that have a fix available;
-      # unfixable base-image CVEs aren't actionable in a feature-flag
-      # service. Slice 7b inherits the same threshold. Each scan uses
-      # continue-on-error so devs see every image's CVEs in one log;
-      # the aggregator step fails the job if any scan reported issues.
-      - name: trivy image scan (api)
-        id: trivy_api
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/depot/falseflag/api:dev
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-      - name: trivy image scan (proxy)
-        id: trivy_proxy
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/depot/falseflag/proxy:dev
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-      - name: trivy image scan (operator)
-        id: trivy_operator
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/depot/falseflag/operator:dev
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-      - name: trivy image scan (mcp)
-        id: trivy_mcp
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/depot/falseflag/mcp:dev
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-      - name: trivy image scan (dashboard)
-        id: trivy_dashboard
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/depot/falseflag/dashboard:dev
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-      - name: fail if any scan reported vulnerabilities
+          targets: ${{ matrix.bake-target }}
+      - name: Install trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sudo sh -s -- -b /usr/local/bin
+          trivy --version
+      - name: Security scan
         run: |
           set -euo pipefail
-          fail=0
-          for name in api proxy operator mcp dashboard; do
-            case "${name}" in
-              api)       outcome="${{ steps.trivy_api.outcome }}";;
-              proxy)     outcome="${{ steps.trivy_proxy.outcome }}";;
-              operator)  outcome="${{ steps.trivy_operator.outcome }}";;
-              mcp)       outcome="${{ steps.trivy_mcp.outcome }}";;
-              dashboard) outcome="${{ steps.trivy_dashboard.outcome }}";;
-            esac
-            echo "${name}: ${outcome}"
-            if [ "${outcome}" != "success" ]; then
-              fail=1
-            fi
-          done
-          exit "${fail}"
+          ref="falseflag/mr31tm4wc4:${{ needs.build-images.outputs.build-id }}-${{ matrix.bake-target }}"
+          docker image ls
+          trivy image \
+            --image-src docker \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --format table \
+            "${ref}"
   smoke:
     name: smoke (${{ matrix.backend }})
     runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
