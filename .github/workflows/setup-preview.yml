@@ -19,11 +19,11 @@ jobs:
     outputs:
       triggered: ${{ steps.check.outputs.triggered }}
     steps:
-      - name: Check for /setup-preview
+      - name: Check for @preview
         id: check
         uses: khan/pull-request-comment-trigger@master
         with:
-          trigger: /setup-preview
+          trigger: "@preview"
           prefix_only: true
           reaction: rocket
         env:
