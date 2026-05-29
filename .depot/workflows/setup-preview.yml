@@ -1,0 +1,38 @@
+name: setup-preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Preview environment slug.
+        required: true
+        type: string
+      branch:
+        description: Branch in Zagrit-HQ/false-flag-demo to deploy.
+        required: true
+        type: string
+      pr:
+        description: Pull request number associated with the preview.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-preview:
+    name: Dispatch GitOps preview workflow
+    runs-on: depot-ubuntu-latest
+    steps:
+      - name: Dispatch create-preview
+        env:
+          GH_TOKEN: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run create-preview.yml \
+            --repo Zagrit-HQ/false-flag-gitops \
+            --ref main \
+            -f environment="${{ inputs.environment }}" \
+            -f branch="${{ inputs.branch }}" \
+            -f pr="${{ inputs.pr }}"
