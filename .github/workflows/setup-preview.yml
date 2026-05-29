@@ -65,15 +65,22 @@ jobs:
             --body "🚀 Setting up preview environment \`${{ steps.preview.outputs.environment }}\` for branch \`${{ steps.preview.outputs.branch }}\`."
 
   create-preview:
-    name: Create preview in GitOps repo
+    name: Dispatch GitOps preview workflow
     needs: resolve-preview
-    uses: Zagrit-HQ/false-flag-gitops/.github/workflows/create-preview.yml@main
-    with:
-      environment: ${{ needs.resolve-preview.outputs.environment }}
-      branch: ${{ needs.resolve-preview.outputs.branch }}
-      pr: ${{ needs.resolve-preview.outputs.pr }}
-    secrets:
-      gitops-token: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch create-preview
+        env:
+          GH_TOKEN: ${{ secrets.FALSE_FLAG_GITOPS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run create-preview.yml \
+            --repo Zagrit-HQ/false-flag-gitops \
+            --ref main \
+            -f environment="${{ needs.resolve-preview.outputs.environment }}" \
+            -f branch="${{ needs.resolve-preview.outputs.branch }}" \
+            -f pr="${{ needs.resolve-preview.outputs.pr }}"
 
   report-preview:
     name: Report preview result
@@ -89,7 +96,7 @@ jobs:
           set -euo pipefail
 
           if [ "${{ needs.create-preview.result }}" = "success" ]; then
-            body="Preview environment \`${{ needs.resolve-preview.outputs.environment }}\` is registered in GitOps and tracks branch \`${{ needs.resolve-preview.outputs.branch }}\`."
+            body="Preview workflow dispatched for \`${{ needs.resolve-preview.outputs.environment }}\`; it will track branch \`${{ needs.resolve-preview.outputs.branch }}\`."
           else
             body="Preview setup failed for \`${{ needs.resolve-preview.outputs.environment }}\`. Check the workflow logs."
           fi
