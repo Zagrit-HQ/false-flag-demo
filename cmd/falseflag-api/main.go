@@ -48,6 +48,7 @@ func run(ctx context.Context) error {
 	}
 
 	log.Info("starting falseflag-api",
+		"build-buster", "afdsafdsa",
 		"version", buildinfo.Version,
 		"commit", buildinfo.Commit,
 		"addr", cfg.Addr,
