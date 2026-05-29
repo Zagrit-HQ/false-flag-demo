@@ -32,6 +32,11 @@ jobs:
         uses: depot/setup-action@v1
       - fail-fast: false
         parallel:
+          - name: Short SHA tag
+            id: short-sha
+            uses: benjlevesque/short-sha@v4.0
+            with:
+              length: 8
           - name: API - Docker tags and metadata
             id: api-meta
             uses: docker/metadata-action@v6
@@ -110,5 +115,6 @@ jobs:
           # Only tags are pushed, pushes to branches test whether app can be built.
           push: ${{github.ref_type == 'tag'}}
           save: true
+          save-tag: ${{ steps.short-sha.outputs.sha }}
         env:
           VERSION: ${{ fromJSON(steps.api-meta.outputs.json).labels['org.opencontainers.image.version'] }}
