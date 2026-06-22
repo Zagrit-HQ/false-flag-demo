@@ -1,21 +1,23 @@
-name: ci-test-e2e-setup
+# Depot CI Migration
+# Source: .github/workflows/test-e2e-setup.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
 
+name: ci-test-e2e-setup
 on:
   workflow_call:
-
 permissions:
   contents: read
   id-token: write
-
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
   PNPM_VERSION: "10.0.0"
   PLAYWRIGHT_VERSION: "1.49.1"
-
 jobs:
   setup-e2e:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     snapshot: e2e-base:202606-01
     steps:
       - uses: actions/checkout@v4
