@@ -2,6 +2,9 @@ name: ci-build
 
 on:
   workflow_call:
+    outputs:
+      build-id:
+        value: ${{ jobs.build-images.outputs.build-id }}
 
 permissions:
   contents: read
@@ -11,8 +14,13 @@ jobs:
   build-images:
     name: build-images
     runs-on: ubuntu-latest
+    outputs:
+      build-id: ${{ steps.bake.outputs.build-id }}
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: depot/setup-action@v1
-      - uses: depot/bake-action@v1
+      - id: bake
+        uses: depot/bake-action@v1
+        with:
+          save: true

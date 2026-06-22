@@ -23,9 +23,15 @@ jobs:
     uses: ./.github/workflows/build.yaml
 
   security:
+    needs: build
     name: security
     uses: ./.github/workflows/security.yaml
+    with:
+      build-id: ${{ needs.build.outputs.build-id }}
 
   test-e2e:
+    needs: build
     name: test-e2e
     uses: ./.github/workflows/test-e2e.yaml
+    with:
+      build-id: ${{ needs.build.outputs.build-id }}
