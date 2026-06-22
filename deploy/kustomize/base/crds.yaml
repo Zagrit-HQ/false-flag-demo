@@ -1,0 +1,1283 @@
+# Aggregates the seven generated CRDs. Regenerate via:
+#   make generate
+#   kubectl kustomize deploy/kustomize/overlays/dev | head
+#
+# Kustomize applies the CRDs first because they are cluster-scoped and
+# every other resource in this overlay references them.
+---
+# These are concatenated copies of deploy/crds/*.yaml; the build relies
+# on this single file so the kustomization doesn't list seven separate
+# resources. Regenerate after touching operator/api/v1alpha1.
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: environments.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: Environment
+    listKind: EnvironmentList
+    plural: environments
+    shortNames:
+    - ffenv
+    singular: environment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .spec.slug
+      name: Slug
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Environment maps to a FalseFlag environment row within a project.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EnvironmentSpec defines the desired state of an Environment.
+            properties:
+              name:
+                description: Name is the human-readable label.
+                type: string
+              projectSlug:
+                description: |-
+                  ProjectSlug identifies the upstream FalseFlag project this
+                  environment belongs to.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+              slug:
+                description: Slug is the environment's identifier within the project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+            required:
+            - name
+            - projectSlug
+            - slug
+            type: object
+          status:
+            description: EnvironmentStatus is the observed state of an Environment.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: flagbindings.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: FlagBinding
+    listKind: FlagBindingList
+    plural: flagbindings
+    shortNames:
+    - ffbinding
+    singular: flagbinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .spec.flagKey
+      name: Flag
+      type: string
+    - jsonPath: .spec.environments.length()
+      name: Envs
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Published")].status
+      name: Published
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          FlagBinding orchestrates per-environment flag publishes. When the
+          binding is reconciled it republishes the referenced Flag once per
+          environment, applying any per-environment overrides.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              FlagBindingSpec ties a Flag CR to one or more Environment slugs and
+              optionally supplies per-environment value overrides. A FlagBinding
+              is the trigger for re-publishing a Flag across its environments.
+            properties:
+              environments:
+                description: |-
+                  Environments is the list of environment slugs the binding
+                  applies to. The reconciler publishes one flag version per
+                  environment.
+                items:
+                  type: string
+                minItems: 1
+                type: array
+              flagKey:
+                description: FlagKey names the Flag this binding republishes.
+                pattern: ^[a-z][a-z0-9-_.]{0,62}$
+                type: string
+              overrides:
+                description: |-
+                  Overrides maps an environment slug to a default-value
+                  override. Environments missing from this map inherit the
+                  parent Flag's default.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              projectSlug:
+                description: ProjectSlug identifies the upstream project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+            required:
+            - environments
+            - flagKey
+            - projectSlug
+            type: object
+          status:
+            description: FlagBindingStatus is the observed state of a FlagBinding.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              publishedVersions:
+                additionalProperties:
+                  format: int32
+                  type: integer
+                description: |-
+                  PublishedVersions records the most recent successful publish
+                  version per environment. Keyed by environment slug.
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: flags.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: Flag
+    listKind: FlagList
+    plural: flags
+    shortNames:
+    - ffflag
+    singular: flag
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .spec.key
+      name: Key
+      type: string
+    - jsonPath: .status.lastPublishedVersion
+      name: Version
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Flag is the declarative representation of a feature flag. The
+          operator translates Spec into the slice-2 IR RulesTree shape and
+          publishes through the FalseFlag API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: FlagSpec defines the desired state of a Flag.
+            properties:
+              bindings:
+                description: |-
+                  Bindings optionally publishes per-environment versions. Empty
+                  means publish a single default version with no environment
+                  scope.
+                items:
+                  description: |-
+                    FlagBinding is an optional per-environment override embedded in
+                    FlagSpec. When non-empty the operator publishes one flag version
+                    per binding; otherwise it publishes a single default version.
+                  properties:
+                    default:
+                      description: |-
+                        Default overrides the parent flag's default for this
+                        environment.
+                      x-kubernetes-preserve-unknown-fields: true
+                    environment:
+                      description: Environment names an Environment slug in the same
+                        project.
+                      pattern: ^[a-z][a-z0-9-]{0,62}$
+                      type: string
+                    rules:
+                      description: |-
+                        Rules optionally replaces the parent flag's rules entirely.
+                        When nil, the parent rules are inherited.
+                      items:
+                        description: |-
+                          FlagRule is one CR-shaped rule that the operator translates into an
+                          IR Rule when publishing. Either Value or RolloutRef is set.
+                        properties:
+                          id:
+                            description: ID names the rule for trace/audit purposes.
+                            type: string
+                          rolloutRef:
+                            description: |-
+                              RolloutRef names a RolloutPolicy CR in the same namespace whose
+                              bucketing+variants are inlined at publish time. Mutually
+                              exclusive with Value.
+                            type: string
+                          value:
+                            description: |-
+                              Value is the static value served when the rule fires. Mutually
+                              exclusive with RolloutRef.
+                            x-kubernetes-preserve-unknown-fields: true
+                          when:
+                            description: |-
+                              When is the predicate that decides whether this rule fires.
+                              Permissive shape; validated by the upstream API on publish.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - id
+                        - when
+                        type: object
+                      type: array
+                  required:
+                  - environment
+                  type: object
+                type: array
+              default:
+                description: Default is the value served when no rule matches.
+                x-kubernetes-preserve-unknown-fields: true
+              key:
+                description: Key is the flag's identifier within the project.
+                pattern: ^[a-z][a-z0-9-_.]{0,62}$
+                type: string
+              name:
+                description: Name is the human-readable label.
+                type: string
+              projectSlug:
+                description: ProjectSlug identifies the upstream project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+              rules:
+                description: Rules is the ordered list of targeting rules.
+                items:
+                  description: |-
+                    FlagRule is one CR-shaped rule that the operator translates into an
+                    IR Rule when publishing. Either Value or RolloutRef is set.
+                  properties:
+                    id:
+                      description: ID names the rule for trace/audit purposes.
+                      type: string
+                    rolloutRef:
+                      description: |-
+                        RolloutRef names a RolloutPolicy CR in the same namespace whose
+                        bucketing+variants are inlined at publish time. Mutually
+                        exclusive with Value.
+                      type: string
+                    value:
+                      description: |-
+                        Value is the static value served when the rule fires. Mutually
+                        exclusive with RolloutRef.
+                      x-kubernetes-preserve-unknown-fields: true
+                    when:
+                      description: |-
+                        When is the predicate that decides whether this rule fires.
+                        Permissive shape; validated by the upstream API on publish.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - when
+                  type: object
+                type: array
+              valueType:
+                default: boolean
+                description: ValueType matches the IR ValueType enum.
+                enum:
+                - boolean
+                - string
+                - number
+                - object
+                type: string
+            required:
+            - default
+            - key
+            - name
+            - projectSlug
+            - valueType
+            type: object
+          status:
+            description: FlagStatus is the observed state of a Flag.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastPublishedVersion:
+                description: |-
+                  LastPublishedVersion is the version returned by the most recent
+                  successful PublishFlagVersion call. When per-environment
+                  bindings are in use this records the last call across all of
+                  them.
+                format: int32
+                type: integer
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: flagsnapshots.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: FlagSnapshot
+    listKind: FlagSnapshotList
+    plural: flagsnapshots
+    shortNames:
+    - ffsnap
+    singular: flagsnapshot
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .status.compiledVersion
+      name: Version
+      type: integer
+    - jsonPath: .status.flagCount
+      name: Flags
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Compiled")].status
+      name: Compiled
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          FlagSnapshot mirrors the latest immutable compiled snapshot for a
+          project. Read-only on the user side; written by the operator.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              FlagSnapshotSpec defines the desired state of a FlagSnapshot CR.
+              FlagSnapshot is read-only: the operator polls the upstream API for
+              the latest snapshot and writes the version into status.
+            properties:
+              projectSlug:
+                description: ProjectSlug identifies the upstream project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+            required:
+            - projectSlug
+            type: object
+          status:
+            description: FlagSnapshotStatus is the observed state of a FlagSnapshot.
+            properties:
+              compiledVersion:
+                description: |-
+                  CompiledVersion is the snapshot version most recently returned
+                  by GetLatestSnapshot. Zero when no snapshot exists yet.
+                format: int32
+                type: integer
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              flagCount:
+                description: |-
+                  FlagCount records how many flags were present in the latest
+                  snapshot.
+                format: int32
+                type: integer
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: projects.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: Project
+    listKind: ProjectList
+    plural: projects
+    shortNames:
+    - ffproject
+    singular: project
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Slug
+      type: string
+    - jsonPath: .spec.configStrategy
+      name: Strategy
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Project is a top-level FalseFlag resource grouping environments, flags,
+          segments, and rollout policies. A Project CR mirrors the upstream
+          project addressed by ProjectSlug; the operator creates or updates the
+          upstream project on every reconcile.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ProjectSpec defines the desired state of a FalseFlag Project.
+            properties:
+              configStrategy:
+                default: json
+                description: |-
+                  ConfigStrategy selects which configuration authoring mode the
+                  project uses. Exactly one of "json", "cel", or "typescript".
+                enum:
+                - json
+                - cel
+                - typescript
+                type: string
+              displayName:
+                description: DisplayName is the human-readable label shown in the
+                  dashboard.
+                type: string
+              projectSlug:
+                description: |-
+                  ProjectSlug is the natural identifier used by the FalseFlag API.
+                  It is what every child CR (Environment, Flag, ...) references.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+            required:
+            - displayName
+            - projectSlug
+            type: object
+          status:
+            description: ProjectStatus is the observed state of a Project.
+            properties:
+              conditions:
+                description: |-
+                  Conditions track the operator's view of the resource. Always
+                  includes "Ready" and "Synced".
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                description: |-
+                  LastSyncTime records the wall-clock time of the most recent
+                  successful upstream sync.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration tracks the spec generation last reconciled.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: rolloutpolicies.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: RolloutPolicy
+    listKind: RolloutPolicyList
+    plural: rolloutpolicies
+    shortNames:
+    - ffrollout
+    singular: rolloutpolicy
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .spec.name
+      name: Name
+      type: string
+    - jsonPath: .spec.variants.length()
+      name: Variants
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          RolloutPolicy describes a reusable bucketing+variants policy that
+          Flag CRs reference by name. It is never published to the upstream
+          API as a standalone resource — it inlines into Flag publishes.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RolloutPolicySpec defines the desired state of a RolloutPolicy.
+            properties:
+              bucketing:
+                description: Bucketing is the hash strategy for the variants.
+                properties:
+                  attribute:
+                    description: Attribute names the evaluation-context attribute
+                      used to hash.
+                    type: string
+                  salt:
+                    description: |-
+                      Salt is mixed into the hash so two policies on the same
+                      attribute can produce independent splits.
+                    type: string
+                  strategy:
+                    default: fnv1a_64
+                    description: |-
+                      Strategy is currently always "fnv1a_64" — the FalseFlag IR's
+                      canonical bucketing function. Kept explicit so the CRD can
+                      evolve without a breaking change later.
+                    enum:
+                    - fnv1a_64
+                    type: string
+                required:
+                - attribute
+                type: object
+              name:
+                description: Name is the policy's identifier — Flag CRs reference
+                  it.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+              projectSlug:
+                description: ProjectSlug identifies the upstream project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+              variants:
+                description: Variants is the list of weighted outcomes.
+                items:
+                  description: RolloutVariant is a single weighted outcome.
+                  properties:
+                    id:
+                      description: ID identifies the variant for traces and analytics.
+                      type: string
+                    value:
+                      description: |-
+                        Value is the IR value emitted when this variant wins. Shape
+                        matches the parent flag's ValueType.
+                      x-kubernetes-preserve-unknown-fields: true
+                    weight:
+                      description: |-
+                        Weight is the variant's share of the rollout. Weights across
+                        all variants must sum to 100 — validated at translation time.
+                      format: int32
+                      maximum: 100
+                      minimum: 0
+                      type: integer
+                  required:
+                  - id
+                  - value
+                  - weight
+                  type: object
+                minItems: 1
+                type: array
+            required:
+            - bucketing
+            - name
+            - projectSlug
+            - variants
+            type: object
+          status:
+            description: RolloutPolicyStatus is the observed state.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: segments.falseflag.dev
+spec:
+  group: falseflag.dev
+  names:
+    kind: Segment
+    listKind: SegmentList
+    plural: segments
+    shortNames:
+    - ffseg
+    singular: segment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.projectSlug
+      name: Project
+      type: string
+    - jsonPath: .spec.key
+      name: Key
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Segment maps to a FalseFlag segment row. Carries a single Predicate.
+          Segments inline at publish time on the upstream side, so deleting a
+          Segment CR is safe for already-compiled snapshots.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SegmentSpec defines the desired state of a Segment.
+            properties:
+              description:
+                description: Description is optional prose for the dashboard.
+                type: string
+              key:
+                description: |-
+                  Key is the segment identifier within the project, used by Flag
+                  rules that reference this segment via {kind: "segment", key: ...}.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+              name:
+                description: Name is the human-readable label.
+                type: string
+              predicate:
+                description: |-
+                  Predicate is the IR Predicate JSON. Validated by the upstream
+                  API at write time; the CRD schema is permissive.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              projectSlug:
+                description: ProjectSlug identifies the upstream project.
+                pattern: ^[a-z][a-z0-9-]{0,62}$
+                type: string
+            required:
+            - key
+            - name
+            - predicate
+            - projectSlug
+            type: object
+          status:
+            description: SegmentStatus is the observed state of a Segment.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

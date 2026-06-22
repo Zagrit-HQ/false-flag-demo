@@ -1,0 +1,95 @@
+{{- if .Values.mcp.enabled -}}
+{{- $component := "mcp" -}}
+{{- $name := include "falseflag.componentName" (dict "root" . "component" $component) -}}
+{{- $apiName := include "falseflag.componentName" (dict "root" . "component" "api") -}}
+{{- $apiRPCAddr := default (printf "http://%s:%v" $apiName .Values.api.service.rpcPort) .Values.mcp.apiRPCAddr -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.mcp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "falseflag.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 8 }}
+    spec:
+      containers:
+        - name: mcp
+          image: "{{ .Values.images.mcp.repository }}:{{ include "falseflag.imageTag" (dict "root" . "image" .Values.images.mcp) }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: FALSEFLAG_MCP_ADDR
+              value: ":8091"
+            - name: FALSEFLAG_MCP_HEALTH_ADDR
+              value: ":8092"
+            - name: FALSEFLAG_API_RPC_ADDR
+              value: {{ $apiRPCAddr | quote }}
+            - name: FALSEFLAG_MCP_ACTOR
+              value: {{ .Values.mcp.actor | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.global.logLevel | quote }}
+            {{- with .Values.mcp.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: mcp
+              containerPort: 8091
+              protocol: TCP
+            - name: health
+              containerPort: 8092
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  type: {{ .Values.mcp.service.type }}
+  selector:
+    {{- include "falseflag.selectorLabels" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - name: mcp
+      port: {{ .Values.mcp.service.mcpPort }}
+      targetPort: mcp
+      protocol: TCP
+    - name: health
+      port: {{ .Values.mcp.service.healthPort }}
+      targetPort: health
+      protocol: TCP
+{{- end }}

@@ -1,0 +1,24 @@
+{
+  "id": "typescript-rollout",
+  "description": "TypeScript DSL with a 100% rollout — exercises the rollout shim builder through the server-side esbuild+goja pipeline.",
+  "strategy": "typescript",
+  "source_text": "import { FalseFlag as ff } from \"@falseflag/config\";\n\nexport default ff.flag({\n  value_type: \"boolean\",\n  default: false,\n  rules: [\n    ff.rule(\n      \"checkout-rollout\",\n      ff.rollout(\"user.id\", \"checkout-rollout-v1\", 100),\n      true,\n    ),\n  ],\n});\n",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "checkout-rollout",
+        "when": {
+          "kind": "rollout",
+          "attr": "user.id",
+          "salt": "checkout-rollout-v1",
+          "percent": 100
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "id": "u-anyone" } },
+  "expected": { "value": true, "reason": "rollout_in_bucket", "rule_id": "checkout-rollout" }
+}

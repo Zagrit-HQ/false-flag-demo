@@ -1,0 +1,18 @@
+{
+  "id": "number-lte",
+  "description": "lte predicate fires at the boundary.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "number",
+    "default": 10,
+    "rules": [
+      {
+        "id": "discount",
+        "when": { "kind": "lte", "attr": "cart.total", "value": 100 },
+        "value": 5
+      }
+    ]
+  },
+  "context": { "cart": { "total": 100 } },
+  "expected": { "value": 5, "reason": "rule_matched", "rule_id": "discount" }
+}

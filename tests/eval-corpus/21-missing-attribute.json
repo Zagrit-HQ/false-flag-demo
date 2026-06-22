@@ -1,0 +1,18 @@
+{
+  "id": "missing-attribute",
+  "description": "eq predicate against a missing attribute falls through to default.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "r1",
+        "when": { "kind": "eq", "attr": "user.plan", "value": "pro" },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "id": "u-no-plan" } },
+  "expected": { "value": false, "reason": "default" }
+}

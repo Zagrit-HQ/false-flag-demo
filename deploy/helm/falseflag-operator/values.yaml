@@ -1,0 +1,113 @@
+# Default values for the FalseFlag stack chart.
+#
+# Demo-quality defaults: a single replica per service, an in-chart
+# Postgres, ClusterIP services, and no production hardening objects.
+
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  imagePullPolicy: IfNotPresent
+  imageTag: "dev"
+  logLevel: info
+
+images:
+  api:
+    repository: ghcr.io/depot/falseflag/api
+    tag: ""
+  proxy:
+    repository: ghcr.io/depot/falseflag/proxy
+    tag: ""
+  mcp:
+    repository: ghcr.io/depot/falseflag/mcp
+    tag: ""
+  dashboard:
+    repository: ghcr.io/depot/falseflag/dashboard
+    tag: ""
+  operator:
+    repository: ghcr.io/depot/falseflag/operator
+    tag: ""
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    username: falseflag
+    password: falseflag
+    database: falseflag
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: ""
+  resources: {}
+
+api:
+  enabled: true
+  replicaCount: 1
+  databaseURL: ""
+  service:
+    type: ClusterIP
+    restPort: 8080
+    rpcPort: 8090
+  resources: {}
+  extraEnv: []
+
+proxy:
+  enabled: true
+  replicaCount: 1
+  projectSlug: acme-web
+  apiBaseURL: ""
+  service:
+    type: ClusterIP
+    port: 8081
+  resources: {}
+  extraEnv: []
+
+mcp:
+  enabled: true
+  replicaCount: 1
+  apiRPCAddr: ""
+  actor: mcp/falseflag-mcp
+  service:
+    type: ClusterIP
+    mcpPort: 8091
+    healthPort: 8092
+  resources: {}
+  extraEnv: []
+
+dashboard:
+  enabled: true
+  replicaCount: 1
+  apiBaseURL: ""
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  resources: {}
+  extraEnv: []
+
+operator:
+  # The operator is useful for Kubernetes-native demos, but the
+  # default stack is API/proxy/MCP/dashboard. Opt in with
+  # --set operator.enabled=true.
+  enabled: false
+  replicaCount: 1
+  apiBaseURL: ""
+  actor: controller/falseflag-operator
+  probes:
+    metricsAddr: ":8082"
+    healthAddr: ":8083"
+  serviceAccount:
+    create: true
+    name: ""
+  resources: {}
+  extraEnv: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

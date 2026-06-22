@@ -1,0 +1,18 @@
+{
+  "id": "matches-email",
+  "description": "Regex on user.email matches depot.dev domain.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "internal",
+        "when": { "kind": "matches", "attr": "user.email", "pattern": ".+@depot\\.dev$" },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "email": "kyle@depot.dev" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "internal" }
+}

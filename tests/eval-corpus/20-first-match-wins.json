@@ -1,0 +1,23 @@
+{
+  "id": "first-match-wins",
+  "description": "When two rules could match, the first wins (rule order is meaningful).",
+  "strategy": "json",
+  "ir": {
+    "value_type": "string",
+    "default": "free",
+    "rules": [
+      {
+        "id": "pro",
+        "when": { "kind": "eq", "attr": "user.plan", "value": "pro" },
+        "value": "premium"
+      },
+      {
+        "id": "always",
+        "when": { "kind": "always" },
+        "value": "should-not-win"
+      }
+    ]
+  },
+  "context": { "user": { "plan": "pro" } },
+  "expected": { "value": "premium", "reason": "rule_matched", "rule_id": "pro" }
+}

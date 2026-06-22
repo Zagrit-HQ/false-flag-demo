@@ -1,0 +1,96 @@
+{{- if .Values.api.enabled -}}
+{{- $component := "api" -}}
+{{- $name := include "falseflag.componentName" (dict "root" . "component" $component) -}}
+{{- $postgresName := include "falseflag.componentName" (dict "root" . "component" "postgresql") -}}
+{{- $dbURL := .Values.api.databaseURL -}}
+{{- if and (not $dbURL) .Values.postgresql.enabled -}}
+{{- $dbURL = printf "postgres://%s:%s@%s:%v/%s?sslmode=disable" .Values.postgresql.auth.username .Values.postgresql.auth.password $postgresName .Values.postgresql.service.port .Values.postgresql.auth.database -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "falseflag.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 8 }}
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.images.api.repository }}:{{ include "falseflag.imageTag" (dict "root" . "image" .Values.images.api) }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: FALSEFLAG_API_ADDR
+              value: ":8080"
+            - name: FALSEFLAG_API_RPC_ADDR
+              value: ":8090"
+            - name: FALSEFLAG_DATABASE_URL
+              value: {{ $dbURL | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.global.logLevel | quote }}
+            {{- with .Values.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: rpc
+              containerPort: 8090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    {{- include "falseflag.selectorLabels" (dict "root" . "component" $component) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.api.service.restPort }}
+      targetPort: http
+      protocol: TCP
+    - name: rpc
+      port: {{ .Values.api.service.rpcPort }}
+      targetPort: rpc
+      protocol: TCP
+{{- end }}

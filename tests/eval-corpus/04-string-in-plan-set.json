@@ -1,0 +1,18 @@
+{
+  "id": "string-in-plan-set",
+  "description": "in predicate matches enterprise plan.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "string",
+    "default": "basic",
+    "rules": [
+      {
+        "id": "r1",
+        "when": { "kind": "in", "attr": "user.plan", "values": ["pro", "enterprise"] },
+        "value": "premium"
+      }
+    ]
+  },
+  "context": { "user": { "plan": "enterprise" } },
+  "expected": { "value": "premium", "reason": "rule_matched", "rule_id": "r1" }
+}

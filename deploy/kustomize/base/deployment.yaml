@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falseflag-operator
+  namespace: falseflag-system
+  labels:
+    app.kubernetes.io/name: falseflag-operator
+    app.kubernetes.io/part-of: falseflag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: falseflag-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: falseflag-operator
+        app.kubernetes.io/part-of: falseflag
+    spec:
+      serviceAccountName: falseflag-operator
+      containers:
+        - name: operator
+          image: ghcr.io/depot/falseflag/operator:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: falseflag-operator
+          ports:
+            - name: metrics
+              containerPort: 8082
+            - name: health
+              containerPort: 8083
+          # Controller-runtime serves /healthz and /readyz once the
+          # manager has finished its initial cache sync. On a cold
+          # kind cluster the first apiserver discovery + CRD list
+          # takes 30–60s; the previous 5s/10s/3 failure threshold
+          # killed the pod before it ever served a probe.
+          livenessProbe:
+            httpGet: {path: /healthz, port: health}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          readinessProbe:
+            httpGet: {path: /readyz, port: health}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6

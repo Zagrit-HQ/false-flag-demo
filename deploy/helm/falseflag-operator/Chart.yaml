@@ -1,0 +1,15 @@
+apiVersion: v2
+name: falseflag
+description: FalseFlag feature flag platform demo stack
+type: application
+version: 0.2.0
+appVersion: "0.1.0"
+keywords:
+  - feature-flags
+  - ci-cd
+  - depot
+  - falseflag
+sources:
+  - https://github.com/depot/falseflag
+maintainers:
+  - name: FalseFlag

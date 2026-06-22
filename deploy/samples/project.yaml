@@ -1,0 +1,9 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: Project
+metadata:
+  name: demo
+  namespace: default
+spec:
+  projectSlug: demo
+  displayName: "Demo Project"
+  configStrategy: json

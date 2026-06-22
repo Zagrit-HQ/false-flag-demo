@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// HealthService is the FalseFlag liveness/readiness contract. Slice 1
+// keeps it deliberately small so the proto/openapi/HTTP server triple
+// all converge on one endpoint. The control-plane contract grows in
+// slice 3.
+service HealthService {
+  // Check returns the current serving status of the FalseFlag binary.
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest {
+  // service is the optional sub-service to probe. Empty means the whole
+  // binary's health.
+  string service = 1;
+}
+
+message CheckResponse {
+  enum ServingStatus {
+    SERVING_STATUS_UNSPECIFIED = 0;
+    SERVING_STATUS_SERVING = 1;
+    SERVING_STATUS_NOT_SERVING = 2;
+  }
+
+  ServingStatus status = 1;
+  string service = 2;
+  string version = 3;
+}

@@ -1,0 +1,25 @@
+{
+  "id": "typescript-nested-cel",
+  "description": "TypeScript DSL nesting a CEL predicate inside ff.all together with a plain eq predicate. Exercises mixed-kind composition through the server-side compiler.",
+  "strategy": "typescript",
+  "source_text": "import { FalseFlag as ff } from \"@falseflag/config\";\n\nexport default ff.flag({\n  value_type: \"string\",\n  default: \"basic\",\n  rules: [\n    ff.rule(\n      \"us-pro\",\n      ff.all(\n        ff.cel(\"ctx.user.plan == 'pro'\"),\n        ff.eq(\"user.region\", \"us\"),\n      ),\n      \"premium\",\n    ),\n  ],\n});\n",
+  "ir": {
+    "value_type": "string",
+    "default": "basic",
+    "rules": [
+      {
+        "id": "us-pro",
+        "when": {
+          "kind": "all",
+          "of": [
+            { "kind": "cel", "source": "ctx.user.plan == 'pro'" },
+            { "kind": "eq", "attr": "user.region", "value": "us" }
+          ]
+        },
+        "value": "premium"
+      }
+    ]
+  },
+  "context": { "user": { "plan": "pro", "region": "us" } },
+  "expected": { "value": "premium", "reason": "rule_matched", "rule_id": "us-pro" }
+}

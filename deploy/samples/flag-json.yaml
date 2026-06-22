@@ -1,0 +1,16 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: Flag
+metadata:
+  name: banner
+  namespace: default
+spec:
+  projectSlug: demo
+  key: banner
+  name: "Marketing Banner"
+  valueType: boolean
+  default: false
+  rules:
+    - id: always-on
+      when:
+        kind: always
+      value: true

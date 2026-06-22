@@ -1,0 +1,166 @@
+# FalseFlag local stack.
+#
+# Builds every service from its production Dockerfile (no bind-mounts,
+# no dev mode) so the local run looks and feels like a real deploy. The
+# Postgres volume persists across restarts so slice 2's migrations and
+# data survive `docker compose down` — wipe with `docker compose down -v`.
+#
+#   docker compose up -d --build
+#   docker compose logs -f
+#   docker compose down
+
+name: falseflag
+
+x-go-build: &go-build
+  context: .
+  dockerfile: infra/Dockerfile
+  args:
+    VERSION: ${VERSION:-dev}
+    COMMIT: ${COMMIT:-unknown}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: falseflag
+      POSTGRES_PASSWORD: falseflag
+      POSTGRES_DB: falseflag
+    ports:
+      - "5432:5432"
+    volumes:
+      - falseflag-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U falseflag -d falseflag"]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+
+  api:
+    image: ghcr.io/depot/falseflag/api:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-api
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_API_ADDR: ":8080"
+      FALSEFLAG_API_RPC_ADDR: ":8090"
+      FALSEFLAG_DATABASE_URL: "postgres://falseflag:falseflag@db:5432/falseflag?sslmode=disable"
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/service", "healthcheck"]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+      start_period: 2s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    image: ghcr.io/depot/falseflag/proxy:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-proxy
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_PROXY_ADDR: ":8081"
+      FALSEFLAG_API_BASE_URL: "http://api:8080"
+      # Slice 5: scope the proxy to the demo project seeded by
+      # `make seed`. Empty means "no project" — the proxy boots but
+      # /v1/evaluate returns 503.
+      FALSEFLAG_PROXY_PROJECT_SLUG: "${FALSEFLAG_PROXY_PROJECT_SLUG:-acme-web}"
+      # Keep /readyz false until the seeded demo snapshot has reached
+      # the proxy, avoiding E2E races against an empty first poll.
+      FALSEFLAG_PROXY_READY_FLAGS: "${FALSEFLAG_PROXY_READY_FLAGS:-proxy-readiness-bool}"
+      LOG_LEVEL: info
+    ports:
+      - "8081:8081"
+    depends_on:
+      api:
+        condition: service_started
+
+  operator:
+    image: ghcr.io/depot/falseflag/operator:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-operator
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_OPERATOR_METRICS_ADDR: ":8082"
+      FALSEFLAG_OPERATOR_HEALTH_ADDR: ":8083"
+      LOG_LEVEL: info
+    ports:
+      - "8082:8082"
+      - "8083:8083"
+
+  mcp:
+    image: ghcr.io/depot/falseflag/mcp:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-mcp
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_MCP_ADDR: ":8091"
+      FALSEFLAG_MCP_HEALTH_ADDR: ":8092"
+      # Connect-over-HTTP to the API's RPC listener.
+      FALSEFLAG_API_RPC_ADDR: "http://api:8090"
+      FALSEFLAG_MCP_ACTOR: "mcp/falseflag-mcp"
+      LOG_LEVEL: info
+    ports:
+      - "8091:8091"
+      - "8092:8092"
+    # No container healthcheck: the image is distroless/static and
+    # has no shell, curl, or wget. /healthz on :8092 is still served
+    # for external probes. The service image itself stays distroless;
+    # api/dashboard own the healthchecks needed by docker compose --wait.
+    depends_on:
+      api:
+        condition: service_started
+
+  dashboard:
+    image: ghcr.io/depot/falseflag/dashboard:${VERSION:-dev}
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.dashboard
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      FALSEFLAG_API_BASE_URL: "http://api:8080"
+    ports:
+      - "3030:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+      start_period: 2s
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  falseflag-db: {}

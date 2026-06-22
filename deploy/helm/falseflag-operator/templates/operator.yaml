@@ -1,0 +1,75 @@
+{{- if .Values.operator.enabled -}}
+{{- $component := "operator" -}}
+{{- $name := include "falseflag.componentName" (dict "root" . "component" $component) -}}
+{{- $apiName := include "falseflag.componentName" (dict "root" . "component" "api") -}}
+{{- $apiBaseURL := default (printf "http://%s:%v" $apiName .Values.api.service.rpcPort) .Values.operator.apiBaseURL -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.operator.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "falseflag.selectorLabels" (dict "root" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "falseflag.componentLabels" (dict "root" . "component" $component) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "falseflag.operatorServiceAccountName" . }}
+      containers:
+        - name: operator
+          image: "{{ .Values.images.operator.repository }}:{{ include "falseflag.imageTag" (dict "root" . "image" .Values.images.operator) }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: FALSEFLAG_API_BASE_URL
+              value: {{ $apiBaseURL | quote }}
+            - name: FALSEFLAG_OPERATOR_ACTOR
+              value: {{ .Values.operator.actor | quote }}
+            - name: FALSEFLAG_OPERATOR_METRICS_ADDR
+              value: {{ .Values.operator.probes.metricsAddr | quote }}
+            - name: FALSEFLAG_OPERATOR_HEALTH_ADDR
+              value: {{ .Values.operator.probes.healthAddr | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.global.logLevel | quote }}
+            {{- with .Values.operator.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 8082
+              protocol: TCP
+            - name: health
+              containerPort: 8083
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.operator.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

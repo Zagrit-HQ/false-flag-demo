@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package falseflag.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/depot/falseflag/internal/gen/proto/falseflag/v1;falseflagv1";
+
+// SnapshotsService manages immutable, project-wide compiled flag
+// bundles. The proxy will consume snapshots in slice 4.
+service SnapshotsService {
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+  rpc GetLatestSnapshot(GetLatestSnapshotRequest) returns (GetLatestSnapshotResponse);
+  rpc CompileSnapshot(CompileSnapshotRequest) returns (CompileSnapshotResponse);
+}
+
+message Snapshot {
+  string id = 1;
+  string project_id = 2;
+  // environment_id is optional; reference data only in slice 3.
+  optional string environment_id = 3;
+  int32 version = 4;
+  google.protobuf.Struct compiled = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListSnapshotsRequest {
+  string project_slug = 1;
+  int32 limit = 2;
+}
+message ListSnapshotsResponse {
+  repeated Snapshot items = 1;
+}
+
+message GetSnapshotRequest {
+  string project_slug = 1;
+  string id = 2;
+}
+message GetSnapshotResponse {
+  Snapshot snapshot = 1;
+}
+
+message GetLatestSnapshotRequest {
+  string project_slug = 1;
+}
+message GetLatestSnapshotResponse {
+  Snapshot snapshot = 1;
+}
+
+message CompileSnapshotRequest {
+  string project_slug = 1;
+  optional string environment_slug = 2;
+}
+message CompileSnapshotResponse {
+  Snapshot snapshot = 1;
+}

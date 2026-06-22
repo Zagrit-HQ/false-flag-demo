@@ -1,0 +1,50 @@
+%% FalseFlag architecture — render with `mmdc -i diagram.mmd -o diagram.svg`.
+%% The .svg artifact is the published reference; this .mmd is the source.
+
+flowchart TB
+    subgraph clients["User surfaces"]
+        dashboard["Dashboard\n(Remix, port 3030)"]
+        cli["CLI\n(@falseflag/cli)"]
+        llm["LLM agents\n(via MCP)"]
+    end
+
+    subgraph runtime["Control plane (Go)"]
+        api["API server\n(REST :8080 + ConnectRPC :8090)"]
+        operator["Operator\n(controller-runtime)\nreconciles CRDs"]
+        mcp["MCP server\n(:8091, 6 tools)"]
+    end
+
+    subgraph data["Persistence"]
+        pg[("Postgres 16\nflags, versions, snapshots,\nenvironments, segments,\naudit_events")]
+    end
+
+    subgraph eval["Evaluation surfaces"]
+        proxy["Proxy\n(:8081, polls snapshots)"]
+        sdkts["TypeScript SDK\n@falseflag/sdk-js"]
+        sdkgo["Go SDK\ninternal/sdkgo"]
+    end
+
+    subgraph k8s["Kubernetes\n(optional, kind)"]
+        crds["CRDs: Project, Environment,\nSegment, Flag, FlagBinding,\nFlagSnapshot, RolloutPolicy"]
+    end
+
+    dashboard -->|HTTP, Zod-validated| api
+    cli -->|REST + Connect| api
+    llm -->|Streamable HTTP| mcp
+    mcp -->|Connect| api
+
+    api <--> pg
+    api -- "snapshot polling\n(10s default)" --> proxy
+    api -- "snapshot polling" --> sdkts
+    api -- "snapshot polling" --> sdkgo
+
+    operator -. "watches CRDs" .-> k8s
+    operator -->|Connect| api
+    crds -. "reflected as state" .-> operator
+
+    classDef plane fill:#1f2937,stroke:#374151,color:#f3f4f6;
+    classDef data fill:#7c3aed,stroke:#5b21b6,color:#fff;
+    classDef edge fill:#059669,stroke:#065f46,color:#fff;
+    class api,operator,mcp plane;
+    class pg data;
+    class proxy,sdkts,sdkgo edge;

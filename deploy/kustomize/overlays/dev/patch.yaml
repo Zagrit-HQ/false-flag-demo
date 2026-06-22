@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falseflag-operator
+  namespace: falseflag-system
+data:
+  # Override for local dev: kind cluster running on the developer's
+  # laptop talks to the API running on the host via the docker
+  # host.docker.internal alias.
+  FALSEFLAG_API_BASE_URL: "http://host.docker.internal:8090"

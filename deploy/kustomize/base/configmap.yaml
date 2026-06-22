@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falseflag-operator
+  namespace: falseflag-system
+  labels:
+    app.kubernetes.io/name: falseflag-operator
+    app.kubernetes.io/part-of: falseflag
+data:
+  FALSEFLAG_API_BASE_URL: "http://falseflag-api.default.svc.cluster.local:8090"
+  FALSEFLAG_OPERATOR_ACTOR: "controller/falseflag-operator"
+  FALSEFLAG_OPERATOR_METRICS_ADDR: ":8082"
+  FALSEFLAG_OPERATOR_HEALTH_ADDR: ":8083"

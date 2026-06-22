@@ -1,0 +1,21 @@
+{
+  "id": "object-default",
+  "description": "Object-valued flag returning a structured default.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "object",
+    "default": { "mode": "light", "density": "comfortable" },
+    "rules": [
+      {
+        "id": "dark",
+        "when": { "kind": "eq", "attr": "user.prefers", "value": "dark" },
+        "value": { "mode": "dark", "density": "comfortable" }
+      }
+    ]
+  },
+  "context": { "user": { "prefers": "system" } },
+  "expected": {
+    "value": { "mode": "light", "density": "comfortable" },
+    "reason": "default"
+  }
+}

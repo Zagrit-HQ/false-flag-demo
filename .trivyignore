@@ -1,0 +1,11 @@
+# Trivy ignore list.
+#
+# CVE-2026-34077 — turbo-stream 2.4.1 (React Router/Remix single-fetch DoS).
+# Fixed only in turbo-stream 3.0.0, but Remix 2.17.x pins turbo-stream to
+# exactly 2.4.1: 3.0.0 is a breaking API change (binary streams) that throws
+# "input must be an ArrayBuffer/ArrayBufferView" inside Remix's single-fetch
+# serializer and takes down dashboard SSR app-wide. There is no Remix-2.17-
+# compatible patched release (npm jumps 2.4.1 → 3.0.0), so the override is
+# incompatible with the framework. Suppress until the dashboard migrates to
+# React Router v7 (which vendors turbo-stream 3.x natively).
+CVE-2026-34077

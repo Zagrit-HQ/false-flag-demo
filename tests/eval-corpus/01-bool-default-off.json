@@ -1,0 +1,12 @@
+{
+  "id": "bool-default-off",
+  "description": "Empty rules tree returns the default false.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": []
+  },
+  "context": { "user": { "id": "u-1" } },
+  "expected": { "value": false, "reason": "default" }
+}

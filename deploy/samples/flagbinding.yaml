@@ -1,0 +1,14 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: FlagBinding
+metadata:
+  name: banner-binding
+  namespace: default
+spec:
+  projectSlug: demo
+  flagKey: banner
+  environments:
+    - staging
+    - prod
+  overrides:
+    staging: true
+    prod: false

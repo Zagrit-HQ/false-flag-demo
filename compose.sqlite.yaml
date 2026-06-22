@@ -1,0 +1,154 @@
+# FalseFlag local stack — SQLite variant.
+#
+# Same shape as compose.yaml but with the api binary writing to a
+# SQLite file in a named volume instead of talking to Postgres. The
+# db service is intentionally absent — the SQLite stack is the
+# zero-Postgres-dependency demo.
+#
+#   docker compose -f compose.sqlite.yaml up -d --build
+#   docker compose -f compose.sqlite.yaml down -v   # wipe the SQLite volume
+#
+# The stack uses a distinct project name (falseflag-sqlite) so it
+# can coexist with the default Postgres-backed stack without volume
+# or network collisions.
+
+name: falseflag-sqlite
+
+x-go-build: &go-build
+  context: .
+  dockerfile: infra/Dockerfile
+  args:
+    VERSION: ${VERSION:-dev}
+    COMMIT: ${COMMIT:-unknown}
+
+services:
+  # init-data chowns the SQLite volume to the api container's
+  # non-root UID (65532, distroless `nonroot`) so the api can write.
+  # Named volumes are created root-owned by default; the api image
+  # has no shell so it can't fix this itself at startup. Runs once
+  # per `up`, exits zero, the api waits for it via depends_on.
+  init-data:
+    image: alpine:3
+    command: ["sh", "-c", "chown -R 65532:65532 /data"]
+    volumes:
+      - falseflag-sqlite:/data
+
+  api:
+    image: ghcr.io/depot/falseflag/api:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-api
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_API_ADDR: ":8080"
+      FALSEFLAG_API_RPC_ADDR: ":8090"
+      FALSEFLAG_DATABASE_URL: "sqlite:///data/falseflag.db"
+      LOG_LEVEL: info
+    volumes:
+      - falseflag-sqlite:/data
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/service", "healthcheck"]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+      start_period: 2s
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+
+  proxy:
+    image: ghcr.io/depot/falseflag/proxy:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-proxy
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_PROXY_ADDR: ":8081"
+      FALSEFLAG_API_BASE_URL: "http://api:8080"
+      FALSEFLAG_PROXY_PROJECT_SLUG: "${FALSEFLAG_PROXY_PROJECT_SLUG:-acme-web}"
+      LOG_LEVEL: info
+    ports:
+      - "8081:8081"
+    depends_on:
+      api:
+        condition: service_started
+
+  operator:
+    image: ghcr.io/depot/falseflag/operator:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-operator
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_OPERATOR_METRICS_ADDR: ":8082"
+      FALSEFLAG_OPERATOR_HEALTH_ADDR: ":8083"
+      LOG_LEVEL: info
+    ports:
+      - "8082:8082"
+      - "8083:8083"
+
+  mcp:
+    image: ghcr.io/depot/falseflag/mcp:${VERSION:-dev}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: falseflag-mcp
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      FALSEFLAG_MCP_ADDR: ":8091"
+      FALSEFLAG_MCP_HEALTH_ADDR: ":8092"
+      FALSEFLAG_API_RPC_ADDR: "http://api:8090"
+      FALSEFLAG_MCP_ACTOR: "mcp/falseflag-mcp"
+      LOG_LEVEL: info
+    ports:
+      - "8091:8091"
+      - "8092:8092"
+    depends_on:
+      api:
+        condition: service_started
+
+  dashboard:
+    image: ghcr.io/depot/falseflag/dashboard:${VERSION:-dev}
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.dashboard
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      FALSEFLAG_API_BASE_URL: "http://api:8080"
+    ports:
+      - "3030:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+      start_period: 2s
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  falseflag-sqlite: {}

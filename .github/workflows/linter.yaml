@@ -1,0 +1,116 @@
+name: ci-linter
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.0"
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.0.0"
+
+jobs:
+  generate-check:
+    name: generate-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: make generate-check
+        run: make generate-check
+
+  lint-go:
+    name: lint-go
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: make lint-go
+        run: make lint-go
+
+  lint-openapi:
+    name: lint-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: install spectral
+        run: npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION}"
+        env:
+          SPECTRAL_VERSION: "6.14.2"
+      - name: spectral lint
+        # github-actions format emits ::warning / ::error annotations
+        # that surface in the PR's Files Changed view.
+        run: |
+          spectral lint \
+            --ruleset .spectral.yaml \
+            --format github-actions \
+            api/openapi/openapi.yaml
+
+  lint-js:
+    name: lint-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: make lint-js
+        run: make lint-js
+
+  typecheck-js:
+    name: typecheck-js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: pnpm typecheck
+        working-directory: js
+        run: pnpm typecheck

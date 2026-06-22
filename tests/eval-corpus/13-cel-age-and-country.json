@@ -1,0 +1,21 @@
+{
+  "id": "cel-age-and-country",
+  "description": "CEL predicate: ctx.user.age >= 21 && ctx.user.country == 'US'.",
+  "strategy": "cel",
+  "ir": {
+    "value_type": "string",
+    "default": "basic",
+    "rules": [
+      {
+        "id": "premium",
+        "when": {
+          "kind": "cel",
+          "source": "ctx.user.age >= 21 && ctx.user.country == 'US'"
+        },
+        "value": "premium"
+      }
+    ]
+  },
+  "context": { "user": { "age": 25, "country": "US" } },
+  "expected": { "value": "premium", "reason": "rule_matched", "rule_id": "premium" }
+}

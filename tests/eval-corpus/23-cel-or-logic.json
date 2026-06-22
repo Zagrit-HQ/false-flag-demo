@@ -1,0 +1,21 @@
+{
+  "id": "cel-or-logic",
+  "description": "CEL: ctx.user.plan == 'pro' || ctx.request.country == 'us'.",
+  "strategy": "cel",
+  "ir": {
+    "value_type": "string",
+    "default": "control",
+    "rules": [
+      {
+        "id": "treatment",
+        "when": {
+          "kind": "cel",
+          "source": "ctx.user.plan == 'pro' || ctx.request.country == 'us'"
+        },
+        "value": "treatment"
+      }
+    ]
+  },
+  "context": { "user": { "plan": "free" }, "request": { "country": "us" } },
+  "expected": { "value": "treatment", "reason": "rule_matched", "rule_id": "treatment" }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "bool-eq-plan-pro",
+  "description": "Pro plan gets treatment via eq predicate.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      { "id": "r1", "when": { "kind": "eq", "attr": "user.plan", "value": "pro" }, "value": true }
+    ]
+  },
+  "context": { "user": { "plan": "pro" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "r1" }
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+import { createProgram } from "../dist/index.js";
+
+createProgram().parseAsync(process.argv);

@@ -1,0 +1,18 @@
+{
+  "id": "not-trial",
+  "description": "not predicate fires when the user is NOT on trial.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "r1",
+        "when": { "kind": "not", "of_one": { "kind": "eq", "attr": "user.trial", "value": true } },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "trial": false } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "r1" }
+}

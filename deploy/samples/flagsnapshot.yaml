@@ -1,0 +1,7 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: FlagSnapshot
+metadata:
+  name: demo-latest
+  namespace: default
+spec:
+  projectSlug: demo

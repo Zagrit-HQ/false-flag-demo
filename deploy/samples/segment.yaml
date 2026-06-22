@@ -1,0 +1,14 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: Segment
+metadata:
+  name: internal-users
+  namespace: default
+spec:
+  projectSlug: demo
+  key: internal-users
+  name: "Internal Users"
+  description: "Anyone with an @depot.dev email"
+  predicate:
+    kind: matches
+    attr: email
+    pattern: ".*@depot\\.dev$"

@@ -1,0 +1,36 @@
+apiVersion: falseflag.dev/v1alpha1
+kind: RolloutPolicy
+metadata:
+  name: gradual-launch
+  namespace: default
+spec:
+  projectSlug: demo
+  name: gradual-launch
+  bucketing:
+    attribute: user_id
+    strategy: fnv1a_64
+    salt: "checkout-v2"
+  variants:
+    - id: control
+      weight: 80
+      value: false
+    - id: treatment
+      weight: 20
+      value: true
+---
+apiVersion: falseflag.dev/v1alpha1
+kind: Flag
+metadata:
+  name: checkout-v2
+  namespace: default
+spec:
+  projectSlug: demo
+  key: checkout-v2
+  name: "Checkout V2"
+  valueType: boolean
+  default: false
+  rules:
+    - id: rollout
+      when:
+        kind: always
+      rolloutRef: gradual-launch

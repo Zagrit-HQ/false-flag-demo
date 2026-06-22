@@ -1,0 +1,30 @@
+{
+  "name": "@falseflag/generated-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "orval --config ./orval.config.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "orval": "7.4.1",
+    "typescript": "5.8.3",
+    "vitest": "3.1.2"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

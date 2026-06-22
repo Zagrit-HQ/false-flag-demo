@@ -1,0 +1,14 @@
+{
+  "id": "bool-eq-plan-free-falls-default",
+  "description": "Non-pro plan falls through to default false.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      { "id": "r1", "when": { "kind": "eq", "attr": "user.plan", "value": "pro" }, "value": true }
+    ]
+  },
+  "context": { "user": { "plan": "free" } },
+  "expected": { "value": false, "reason": "default" }
+}

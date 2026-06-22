@@ -1,0 +1,64 @@
+# FalseFlag Remix dashboard image.
+#
+# Build with docker buildx bake (target=dashboard) or:
+#   docker build -f infra/Dockerfile.dashboard .
+#
+# Two-stage install pattern: `deps` carries the full dev+prod tree for
+# building, `deps-prd` carries only runtime deps for Trivy to scan. The
+# build stage produces the Remix output and the generated-client dist;
+# the runtime stage overlays those onto deps-prd's prod node_modules.
+# Runtime uses plain Alpine + nodejs instead of the full node image so
+# npm/yarn/corepack build tooling is not shipped.
+
+ARG NODE_VERSION=22
+ARG ALPINE_VERSION=3.24
+
+FROM node:${NODE_VERSION}-alpine AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /repo
+
+# Manifest-only stage so the install layers only invalidate when a
+# package.json or the lockfile changes, not on every source edit.
+FROM base AS manifests
+COPY js/pnpm-lock.yaml js/pnpm-workspace.yaml js/package.json js/turbo.json js/tsconfig.json js/tsconfig.base.json js/biome.json ./
+COPY js/apps/dashboard/package.json apps/dashboard/
+COPY js/apps/cli/package.json apps/cli/
+COPY js/packages/sdk-js/package.json packages/sdk-js/
+COPY js/packages/config-ts/package.json packages/config-ts/
+COPY js/packages/generated-client-ts/package.json packages/generated-client-ts/
+COPY js/packages/shared-eval-corpus/package.json packages/shared-eval-corpus/
+
+FROM manifests AS deps
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
+
+FROM manifests AS deps-prd
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --prod
+
+FROM deps AS build
+COPY js/ ./
+COPY api/openapi/openapi.yaml /api-openapi.yaml
+RUN ln -sf /api-openapi.yaml /api/openapi/openapi.yaml || true
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm --filter @falseflag/dashboard... build
+
+FROM alpine:${ALPINE_VERSION} AS runtime
+ENV NODE_ENV=production
+WORKDIR /repo/apps/dashboard
+RUN apk add --no-cache --upgrade nodejs libcrypto3 libssl3
+# Prod-only node_modules tree, anchored at /repo so pnpm's workspace
+# symlinks (apps/dashboard/node_modules/@falseflag/generated-client →
+# ../../../packages/generated-client-ts) resolve.
+COPY --from=deps-prd /repo /repo
+# Overlay built artifacts onto the prod tree.
+COPY --from=build /repo/apps/dashboard/build /repo/apps/dashboard/build
+COPY --from=build /repo/packages/generated-client-ts/dist /repo/packages/generated-client-ts/dist
+# Trivy's pnpm analyzer would flag every devDep listed in the lockfile
+# as a "shipped" package. Strip it — deps-prd already installed the
+# correct subset.
+RUN rm -f /repo/pnpm-lock.yaml
+EXPOSE 3000
+CMD ["node", "node_modules/@remix-run/serve/dist/cli.js", "./build/server/index.js"]

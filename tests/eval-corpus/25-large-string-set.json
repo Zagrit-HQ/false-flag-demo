@@ -1,0 +1,30 @@
+{
+  "id": "large-string-set",
+  "description": "string `in` against a large membership set.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "allowlisted",
+        "when": {
+          "kind": "in",
+          "attr": "user.email",
+          "values": [
+            "a@example.com",
+            "b@example.com",
+            "c@example.com",
+            "d@example.com",
+            "e@example.com",
+            "alice@depot.dev",
+            "f@example.com"
+          ]
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "email": "alice@depot.dev" } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "allowlisted" }
+}

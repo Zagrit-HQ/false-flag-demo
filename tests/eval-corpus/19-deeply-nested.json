@@ -1,0 +1,33 @@
+{
+  "id": "deeply-nested",
+  "description": "all-of-(any-of-(eq, eq), not(eq)). Three levels of predicate nesting.",
+  "strategy": "json",
+  "ir": {
+    "value_type": "boolean",
+    "default": false,
+    "rules": [
+      {
+        "id": "treatment",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "any",
+              "of": [
+                { "kind": "eq", "attr": "user.plan", "value": "pro" },
+                { "kind": "eq", "attr": "user.plan", "value": "enterprise" }
+              ]
+            },
+            {
+              "kind": "not",
+              "of_one": { "kind": "eq", "attr": "user.banned", "value": true }
+            }
+          ]
+        },
+        "value": true
+      }
+    ]
+  },
+  "context": { "user": { "plan": "enterprise", "banned": false } },
+  "expected": { "value": true, "reason": "rule_matched", "rule_id": "treatment" }
+}
