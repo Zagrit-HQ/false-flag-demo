@@ -15,6 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+        id: buildx
+        with:
+          driver: docker-container
+          use: true
       # Buildx local cache. Branch-keyed so the first PR push pays a
       # cold cache, subsequent runs on the same ref hit warm. main is
       # the universal restore-key fallback.
@@ -37,15 +41,10 @@ jobs:
       # rotation pattern from buildx docs avoids /tmp/.buildx-cache
       # growing unboundedly.
       - name: docker buildx bake
-        env:
-          # Buildx 0.18+ tightened entitlements: bake configs that mount
-          # /tmp/.buildx-cache or read parent dirs need explicit opt-in.
-          # The opt-in flag isn't read from env; disable the check
-          # globally so the bake plumbing stays portable. Slice 7b's
-          # depot bake doesn't hit this path.
-          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
         run: |
           docker buildx bake \
+            --builder "${{ steps.buildx.outputs.name }}" \
+            --allow=fs=/tmp \
             --set "*.cache-from=type=local,src=/tmp/.buildx-cache" \
             --set "*.cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max" \
             --set "*.output=type=cacheonly" \

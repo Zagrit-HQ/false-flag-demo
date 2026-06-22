@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+        id: buildx
+        with:
+          driver: docker-container
+          use: true
       # Same key shape as build-images. Whichever job finishes first
       # writes the cache; the other one's save is a no-op. Both jobs
       # read from the same warm layers on subsequent runs.
@@ -34,10 +38,10 @@ jobs:
       # build that pushes to an ephemeral registry, then have trivy
       # pull from there.
       - name: docker buildx bake (amd64, load to daemon)
-        env:
-          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
         run: |
           docker buildx bake \
+            --builder "${{ steps.buildx.outputs.name }}" \
+            --allow=fs=/tmp \
             --set "*.platform=linux/amd64" \
             --set "*.output=type=docker" \
             --set "*.cache-from=type=local,src=/tmp/.buildx-cache-scan" \

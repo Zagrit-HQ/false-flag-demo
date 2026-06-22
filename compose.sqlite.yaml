@@ -56,7 +56,7 @@ services:
       test: ["CMD", "/usr/local/bin/service", "healthcheck"]
       interval: 1s
       timeout: 1s
-      retries: 20
+      retries: 40
       start_period: 2s
     depends_on:
       init-data:
@@ -144,7 +144,7 @@ services:
         ]
       interval: 1s
       timeout: 1s
-      retries: 20
+      retries: 40
       start_period: 2s
     depends_on:
       api:

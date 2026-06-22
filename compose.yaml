@@ -34,7 +34,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U falseflag -d falseflag"]
       interval: 1s
       timeout: 1s
-      retries: 20
+      retries: 40
 
   api:
     image: ghcr.io/depot/falseflag/api:${VERSION:-dev}
@@ -57,7 +57,7 @@ services:
       test: ["CMD", "/usr/local/bin/service", "healthcheck"]
       interval: 1s
       timeout: 1s
-      retries: 20
+      retries: 40
       start_period: 2s
     depends_on:
       db:
@@ -156,7 +156,7 @@ services:
         ]
       interval: 1s
       timeout: 1s
-      retries: 20
+      retries: 40
       start_period: 2s
     depends_on:
       api:
