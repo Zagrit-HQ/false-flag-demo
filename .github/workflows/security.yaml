@@ -2,9 +2,14 @@ name: ci-security
 
 on:
   workflow_call:
+    inputs:
+      build-id:
+        required: true
+        type: string
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   image-scan:
@@ -13,42 +18,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      # Same key shape as build-images. Whichever job finishes first
-      # writes the cache; the other one's save is a no-op. Both jobs
-      # read from the same warm layers on subsequent runs.
-      - name: cache buildx layers
-        uses: actions/cache@v4
+      - uses: depot/setup-action@v1
+      - uses: depot/pull-action@v1
         with:
-          path: /tmp/.buildx-cache-scan
-          key: buildx-scan-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('docker-bake.hcl', 'infra/Dockerfile*', 'go.sum', 'js/pnpm-lock.yaml') }}
-          restore-keys: |
-            buildx-scan-${{ runner.os }}-${{ github.ref_name }}-
-            buildx-scan-${{ runner.os }}-main-
-            buildx-${{ runner.os }}-main-
-            buildx-${{ runner.os }}-
-      # Trivy needs to read images from a docker daemon, so this job
-      # builds single-arch amd64 images with type=docker (loadable
-      # into the daemon) instead of the multi-arch cache-only output
-      # that build-images uses. Slice 7b can swap this for a Depot
-      # build that pushes to an ephemeral registry, then have trivy
-      # pull from there.
-      - name: docker buildx bake (amd64, load to daemon)
-        env:
-          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
-        run: |
-          docker buildx bake \
-            --set "*.platform=linux/amd64" \
-            --set "*.output=type=docker" \
-            --set "*.cache-from=type=local,src=/tmp/.buildx-cache-scan" \
-            --set "*.cache-to=type=local,dest=/tmp/.buildx-cache-scan-new,mode=max" \
-            default
-      - name: rotate buildx cache
-        run: |
-          if [ -d /tmp/.buildx-cache-scan-new ]; then
-            rm -rf /tmp/.buildx-cache-scan
-            mv /tmp/.buildx-cache-scan-new /tmp/.buildx-cache-scan
-          fi
+          build-id: ${{ inputs.build-id }}
       # --ignore-unfixed: only fail on CVEs that have a fix available;
       # unfixable base-image CVEs aren't actionable in a feature-flag
       # service. Slice 7b inherits the same threshold. Each scan uses
