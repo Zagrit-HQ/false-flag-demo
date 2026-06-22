@@ -17,7 +17,7 @@ interface Props {
 // editor.client.tsx is a Remix 2.x browser-only file (the .client.tsx
 // suffix replaces the module with an empty stub during SSR). The
 // wrapping route imports this lazily via React.lazy + <Suspense>, so
-// Monaco's ~5MB chunk only loads on the edit route.
+// Monaco's ~5MB chunks only loads on the edit route.
 export default function CodeEditor({
   value,
   language,
