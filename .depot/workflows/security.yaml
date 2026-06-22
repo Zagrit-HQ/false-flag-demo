@@ -1,20 +1,23 @@
-name: ci-security
+# Depot CI Migration
+# Source: .github/workflows/security.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
 
+name: ci-security
 on:
   workflow_call:
     inputs:
       build-id:
         required: true
         type: string
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
   image-scan:
     name: image-scan
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4

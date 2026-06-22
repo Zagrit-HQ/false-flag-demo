@@ -1,20 +1,22 @@
-name: ci-test
+# Depot CI Migration
+# Source: .github/workflows/test.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
 
+name: ci-test
 on:
   workflow_call:
-
 permissions:
   contents: read
-
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
   PNPM_VERSION: "10.0.0"
-
 jobs:
   test-go:
     name: test-go
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -24,10 +26,9 @@ jobs:
           cache: true
       - name: make test-go
         run: make test-go
-
   test-js:
     name: test-js
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -47,10 +48,9 @@ jobs:
         run: pnpm generate
       - name: make test-js
         run: make test-js
-
   sdk-conformance:
     name: sdk-conformance
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -74,15 +74,14 @@ jobs:
         run: pnpm generate
       - name: make sdk-conformance
         run: make sdk-conformance
-
   contract-test:
     name: contract-test (${{ matrix.backend }})
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        backend: [ postgres, sqlite ]
+        backend: [postgres, sqlite]
     services:
       postgres:
         image: postgres:16-alpine
@@ -93,10 +92,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U falseflag -d falseflag"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
+          --health-cmd "pg_isready -U falseflag -d falseflag" --health-interval 5s --health-timeout 3s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

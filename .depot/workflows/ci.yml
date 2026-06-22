@@ -1,43 +1,41 @@
-name: ci
+# Depot CI Migration
+# Source: .github/workflows/ci.yml
+#
+# Changes made:
+# - Rewrote .github/ path references to .depot/
 
+name: ci
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ "**" ]
+    branches: ["**"]
   push:
-    branches: [ "main" ]
-
+    branches: ["main"]
 permissions:
   contents: read
   id-token: write
-
 jobs:
   linter:
     name: linter
-    uses: ./.github/workflows/linter.yaml
-
+    uses: ./.depot/workflows/linter.yaml
   test:
     name: test
-    uses: ./.github/workflows/test.yaml
-
+    uses: ./.depot/workflows/test.yaml
   build:
     name: build
-    uses: ./.github/workflows/build.yaml
-
+    uses: ./.depot/workflows/build.yaml
   security:
     needs: build
     name: security
-    uses: ./.github/workflows/security.yaml
+    uses: ./.depot/workflows/security.yaml
     with:
       build-id: ${{ needs.build.outputs.build-id }}
-
   test-e2e-setup:
     name: test-e2e-setup
-    uses: ./.github/workflows/test-e2e-setup.yaml
-
+    uses: ./.depot/workflows/test-e2e-setup.yaml
   test-e2e:
     needs: [build, test-e2e-setup]
     name: test-e2e
-    uses: ./.github/workflows/test-e2e.yaml
+    uses: ./.depot/workflows/test-e2e.yaml
     with:
       build-id: ${{ needs.build.outputs.build-id }}
