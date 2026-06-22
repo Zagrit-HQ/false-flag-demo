@@ -1,0 +1,41 @@
+name: ci-test-e2e-setup
+
+on:
+  workflow_call:
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GO_VERSION: "1.26.0"
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.0.0"
+  PLAYWRIGHT_VERSION: "1.49.1"
+
+jobs:
+  setup-e2e:
+    runs-on: ubuntu-latest
+    snapshot: e2e-base:2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: js/pnpm-lock.yaml
+      - name: pnpm install
+        working-directory: js
+        run: pnpm install --frozen-lockfile
+      - name: pnpm generate
+        working-directory: js
+        run: pnpm generate
+      - name: install playwright chromium
+        working-directory: js
+        run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium

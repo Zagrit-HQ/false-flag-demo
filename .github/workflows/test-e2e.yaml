@@ -20,7 +20,8 @@ env:
 jobs:
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }})
-    runs-on: ubuntu-latest
+    runs-on:
+      image: e2e
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -31,27 +32,8 @@ jobs:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: js/pnpm-lock.yaml
-      - name: pnpm install
-        working-directory: js
-        run: pnpm install --frozen-lockfile
-      - name: pnpm generate
-        working-directory: js
-        run: pnpm generate
-      - name: install playwright chromium
-        working-directory: js
-        run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+          clean: false
       - uses: depot/setup-action@v1
       - uses: depot/pull-action@v1
         with:
