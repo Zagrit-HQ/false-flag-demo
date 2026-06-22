@@ -1,0 +1,56 @@
+name: backport
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Merged pull request number to backport
+        required: true
+        type: string
+      dry_run:
+        description: Plan and apply locally without pushing refs or creating a PR
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  backport:
+    name: backport
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 10
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'backport'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BACKPORT_GITHUB_PAT }}
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Configure Git identity
+        run: |
+          git config user.name "false-flag backport bot"
+          git config user.email "backport-bot@users.noreply.github.com"
+      - name: Run backport automation
+        env:
+          FORCE_COLOR: 3
+          GITHUB_TOKEN: ${{ secrets.BACKPORT_GITHUB_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SLACK_WEBHOOK_RELEASE_NEXT: ${{ secrets.SLACK_WEBHOOK_RELEASE_NEXT }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npx zx --install .depot/scripts/backport.mjs --pr-number "$PR_NUMBER" --dry-run --yes
+          else
+            npx zx --install .depot/scripts/backport.mjs --pr-number "$PR_NUMBER"
+          fi

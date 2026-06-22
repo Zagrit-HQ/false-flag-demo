@@ -1,0 +1,37 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan and apply locally without pushing refs
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: release
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run release automation
+        env:
+          FORCE_COLOR: 3
+          REF_NAME: ${{ github.ref_name }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npx zx --install .depot/scripts/release.mjs --branch "$REF_NAME" --dry-run --yes
+          else
+            npx zx --install .depot/scripts/release.mjs --branch "$REF_NAME"
+          fi
