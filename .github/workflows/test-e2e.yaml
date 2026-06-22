@@ -21,6 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         backend: [ postgres, sqlite ]
+        shard: [1,2,3,4]
     env:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
@@ -53,7 +54,7 @@ jobs:
         env:
           FALSEFLAG_DASHBOARD_URL: http://127.0.0.1:3030
           FALSEFLAG_API_BASE_URL: http://127.0.0.1:8080
-        run: pnpm exec playwright test
+        run: pnpm exec playwright test --shard ${{ matrix.shard }}/4
       - name: dump compose logs (on failure)
         if: failure()
         run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
