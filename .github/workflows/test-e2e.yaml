@@ -2,9 +2,14 @@ name: ci-test-e2e
 
 on:
   workflow_call:
+    inputs:
+      build-id:
+        required: true
+        type: string
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   GO_VERSION: "1.26.0"
@@ -47,8 +52,12 @@ jobs:
       - name: install playwright chromium
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+      - uses: depot/setup-action@v1
+      - uses: depot/pull-action@v1
+        with:
+          build-id: ${{ inputs.build-id }}
       - name: docker compose up
-        run: docker compose -f "${COMPOSE_FILE}" up -d --build --wait --wait-timeout 60
+        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build --wait --wait-timeout 60
       - name: Run test
         working-directory: js/apps/dashboard
         env:
