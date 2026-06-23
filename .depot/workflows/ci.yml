@@ -30,8 +30,13 @@ jobs:
     uses: ./.depot/workflows/security.yaml
     with:
       build-id: ${{ needs.build.outputs.build-id }}
-  test-e2e:
+  test-e2e-setup:
     needs: build
+    name: test-e2e-setup
+    uses: ./.depot/workflows/test-e2e-setup.yaml
+
+  test-e2e:
+    needs: [build, test-e2e-setup]
     name: test-e2e
     uses: ./.depot/workflows/test-e2e.yaml
     with:
