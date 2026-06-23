@@ -31,7 +31,6 @@ jobs:
     with:
       build-id: ${{ needs.build.outputs.build-id }}
   test-e2e-setup:
-    needs: build
     name: test-e2e-setup
     uses: ./.depot/workflows/test-e2e-setup.yaml
 
