@@ -1,19 +1,22 @@
-name: ci-build
+# Depot CI Migration
+# Source: .github/workflows/build.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
 
+name: ci-build
 on:
   workflow_call:
     outputs:
       build-id:
         value: ${{ jobs.build-images.outputs.build-id }}
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
   build-images:
     name: build-images
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     outputs:
       build-id: ${{ steps.bake.outputs.build-id }}
     timeout-minutes: 50

@@ -1,20 +1,22 @@
-name: ci-linter
+# Depot CI Migration
+# Source: .github/workflows/linter.yaml
+#
+# Changes made:
+# - Changed GitHub runs-on labels to their Depot equivalents
 
+name: ci-linter
 on:
   workflow_call:
-
 permissions:
   contents: read
-
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
   PNPM_VERSION: "10.0.0"
-
 jobs:
   generate-check:
     name: generate-check
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -35,10 +37,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: make generate-check
         run: make generate-check
-
   lint-go:
     name: lint-go
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -48,10 +49,9 @@ jobs:
           cache: true
       - name: make lint-go
         run: make lint-go
-
   lint-openapi:
     name: lint-openapi
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -70,10 +70,9 @@ jobs:
             --ruleset .spectral.yaml \
             --format github-actions \
             api/openapi/openapi.yaml
-
   lint-js:
     name: lint-js
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -90,10 +89,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: make lint-js
         run: make lint-js
-
   typecheck-js:
     name: typecheck-js
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

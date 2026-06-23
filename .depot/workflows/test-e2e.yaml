@@ -1,22 +1,23 @@
-name: ci-test-e2e
+# Depot CI Migration
+# Source: .github/workflows/test-e2e.yaml
+#
+# No changes were necessary.
 
+name: ci-test-e2e
 on:
   workflow_call:
     inputs:
       build-id:
         required: true
         type: string
-
 permissions:
   contents: read
   id-token: write
-
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
   PNPM_VERSION: "10.0.0"
   PLAYWRIGHT_VERSION: "1.49.1"
-
 jobs:
   dashboard-e2e:
     name: dashboard-e2e (${{ matrix.backend }})
@@ -26,8 +27,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [ postgres, sqlite ]
-        shard: [ 1,2,3,4]
+        backend: [postgres, sqlite]
+        shard: [1, 2, 3, 4]
     env:
       COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
