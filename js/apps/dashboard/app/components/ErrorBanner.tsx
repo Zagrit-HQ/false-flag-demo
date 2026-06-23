@@ -5,7 +5,7 @@ export function ErrorBanner({ error }: { error?: string }) {
       className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-900"
       data-testid="error"
     >
-      API unreachable: {error}
+      API is unreachable: {error}
     </div>
   );
 }
