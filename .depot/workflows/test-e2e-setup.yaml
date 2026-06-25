@@ -18,7 +18,11 @@ env:
 jobs:
   setup-e2e:
     runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    snapshot: e2e-base:v1.0.1
+    snapshot:
+      image-name: e2e-base
+      version: v1.0.2
+      with:
+        version: v1.2.22-alpha.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
