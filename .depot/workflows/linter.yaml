@@ -1,114 +1,66 @@
-# Depot CI Migration
-# Source: .github/workflows/linter.yaml
-#
-# Changes made:
-# - Changed GitHub runs-on labels to their Depot equivalents
-
 name: ci-linter
 on:
   workflow_call:
+
 permissions:
   contents: read
+
 env:
   GO_VERSION: "1.26.0"
   NODE_VERSION: "22"
   PNPM_VERSION: "10.0.0"
+  SPECTRAL_VERSION: "6.14.2"
+
 jobs:
-  generate-check:
-    name: generate-check
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    timeout-minutes: 10
+  lint:
+    name: lint
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: js/pnpm-lock.yaml
-      - name: pnpm install
-        working-directory: js
-        run: pnpm install --frozen-lockfile
-      - name: make generate-check
-        run: make generate-check
-  lint-go:
-    name: lint-go
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: make lint-go
-        run: make lint-go
-  lint-openapi:
-    name: lint-openapi
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: install spectral
-        run: npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION}"
-        env:
-          SPECTRAL_VERSION: "6.14.2"
-      - name: spectral lint
-        # github-actions format emits ::warning / ::error annotations
-        # that surface in the PR's Files Changed view.
-        run: |
-          spectral lint \
-            --ruleset .spectral.yaml \
-            --format github-actions \
-            api/openapi/openapi.yaml
-  lint-js:
-    name: lint-js
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: js/pnpm-lock.yaml
-      - name: pnpm install
-        working-directory: js
-        run: pnpm install --frozen-lockfile
-      - name: make lint-js
-        run: make lint-js
-  typecheck-js:
-    name: typecheck-js
-    runs-on: depot-ubuntu-latest # was: ubuntu-latest. Mapped standard GitHub runner to Depot equivalent.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: js/pnpm-lock.yaml
-      - name: pnpm install
-        working-directory: js
-        run: pnpm install --frozen-lockfile
-      - name: pnpm generate
-        working-directory: js
-        run: pnpm generate
-      - name: pnpm typecheck
-        working-directory: js
-        run: pnpm typecheck
+
+      - parallel:
+          - sequential:
+              - uses: actions/setup-go@v5
+                with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+              - name: Go mod download
+                run: go mod download
+
+          - sequential:
+              - uses: pnpm/action-setup@v4
+                with:
+                  version: ${{ env.PNPM_VERSION }}
+              - uses: actions/setup-node@v4
+                with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: pnpm
+                  cache-dependency-path: js/pnpm-lock.yaml
+              - name: pnpm install
+                working-directory: js
+                run: pnpm install --frozen-lockfile
+              - name: Install Spectral
+                run: npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION}"
+
+      - fail-fast: false
+        parallel:
+          - name: generate-check
+            run: make generate-check
+
+          - name: lint-go
+            run: make lint-go
+
+          - name: lint-js
+            run: make lint-js
+
+          - name: typecheck-js
+            working-directory: js
+            run: pnpm typecheck
+
+          - name: lint-openapi
+            run: |
+              spectral lint \
+                --ruleset .spectral.yaml \
+                --format github-actions \
+                api/openapi/openapi.yaml
