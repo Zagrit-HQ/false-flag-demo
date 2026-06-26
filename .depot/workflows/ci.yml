@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          clear: false
+          clean: false
       - uses: depot/setup-action@v1
       - uses: depot/pull-action@v1
         with:
