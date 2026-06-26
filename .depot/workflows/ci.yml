@@ -42,7 +42,7 @@ jobs:
     runs-on: depot-ubuntu-latest
     snapshot:
       image-name: e2e-base
-      version: v1.4
+      version: v1.5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -66,6 +66,8 @@ jobs:
       - name: install playwright chromium
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+      - name: preload postgres image
+        run: docker pull postgres:16-alpine
 
   test-e2e:
     needs: [setup-e2e, build]
