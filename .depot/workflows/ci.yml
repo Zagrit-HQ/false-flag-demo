@@ -40,7 +40,9 @@ jobs:
 
   setup-e2e:
     runs-on: depot-ubuntu-latest
-    snapshot: e2e-base:1.4
+    snapshot:
+      image-name: e2e-base
+      version: v1.4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -64,8 +66,6 @@ jobs:
       - name: install playwright chromium
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
-      - name: preload docker images
-        run: docker pull postgres:16-alpine
 
   test-e2e:
     needs: [setup-e2e, build]
@@ -81,11 +81,43 @@ jobs:
         with:
           clean: false
       - uses: depot/setup-action@v1
-      - uses: depot/pull-action@v1
-        with:
-          build-id: ${{ needs.build.outputs.build-id }}
+      - parallel:
+          - uses: depot/pull-action@v1
+            with:
+              build-id: ${{ needs.build.outputs.build-id }}
+
+          - name: pull postgres image
+            run: docker pull postgres:16-alpine
+      - name: list docker images
+        run: docker image ls --digests
       - name: docker compose up
-        run: docker compose up -d --no-build --wait --wait-timeout 60
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          events_file=compose-events.ndjson
+          docker compose events --json > "$events_file" &
+          events_pid=$!
+
+          start=$(date +%s)
+          set +e
+          docker compose up -d --no-build --wait --wait-timeout 60
+          status=$?
+          end=$(date +%s)
+          set -e
+
+          kill "$events_pid" 2>/dev/null || true
+          wait "$events_pid" 2>/dev/null || true
+
+          echo "docker compose up elapsed: $((end - start))s"
+          echo "::group::docker compose ps"
+          docker compose ps
+          echo "::endgroup::"
+          echo "::group::docker compose events"
+          cat "$events_file"
+          echo "::endgroup::"
+
+          exit "$status"
       - name: Run test
         working-directory: js/apps/dashboard
         env:
