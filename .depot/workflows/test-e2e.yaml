@@ -27,10 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [postgres, sqlite]
         shard: [1, 2, 3, 4]
-    env:
-      COMPOSE_FILE: ${{ matrix.backend == 'postgres' && 'compose.yaml' || 'compose.sqlite.yaml' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +37,7 @@ jobs:
         with:
           build-id: ${{ inputs.build-id }}
       - name: docker compose up
-        run: docker compose -f "${COMPOSE_FILE}" up -d --no-build --wait --wait-timeout 60
+        run: docker compose up -d --no-build --wait --wait-timeout 60
       - name: Run test
         working-directory: js/apps/dashboard
         env:
@@ -49,4 +46,4 @@ jobs:
         run: pnpm exec playwright test --shard ${{ matrix.shard }}/4
       - name: dump compose logs (on failure)
         if: failure()
-        run: docker compose -f "${COMPOSE_FILE}" logs > compose-logs.txt
+        run: docker compose logs > compose-logs.txt
