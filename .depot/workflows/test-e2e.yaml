@@ -20,7 +20,6 @@ env:
   PLAYWRIGHT_VERSION: "1.49.1"
 jobs:
   dashboard-e2e:
-    name: dashboard-e2e (${{ matrix.backend }})
     runs-on:
       image: e2e-base
     timeout-minutes: 25
