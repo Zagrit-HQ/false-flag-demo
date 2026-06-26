@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: ["**"]
   push:
-    branches: ["main"]
+    branches: ["**"]
 
 permissions:
   contents: read
@@ -38,12 +38,16 @@ jobs:
         with:
           save: true
 
-  setup-e2e:
+  test-e2e:
+    needs: build
     runs-on: depot-ubuntu-latest
-    snapshot:
-      image-name: e2e-base
-      version: v1.5
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -66,22 +70,6 @@ jobs:
       - name: install playwright chromium
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
-      - name: preload postgres image
-        run: docker pull postgres:16-alpine
-
-  test-e2e:
-    needs: [setup-e2e, build]
-    runs-on:
-      image: e2e-base
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          clean: false
       - uses: depot/setup-action@v1
       - uses: depot/pull-action@v1
         with:
