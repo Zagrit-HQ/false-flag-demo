@@ -83,7 +83,7 @@ jobs:
       - uses: depot/setup-action@v1
       - uses: depot/pull-action@v1
         with:
-          build-id: ${{ jobs.build-images.outputs.build-id }}
+          build-id: ${{ jobs.build.outputs.build-id }}
       - name: docker compose up
         run: docker compose up -d --no-build --wait --wait-timeout 60
       - name: Run test
