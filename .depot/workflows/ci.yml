@@ -38,16 +38,10 @@ jobs:
         with:
           save: true
 
-  test-e2e:
-    needs: build
+  setup-e2e:
     runs-on: depot-ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
+    snapshot: e2e-demo:v1
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -70,6 +64,20 @@ jobs:
       - name: install playwright chromium
         working-directory: js
         run: pnpm --filter @falseflag/dashboard exec playwright install --with-deps chromium
+
+  test-e2e:
+    needs: build
+    runs-on:
+      image: e2e-demo
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clear: false
       - uses: depot/setup-action@v1
       - uses: depot/pull-action@v1
         with:
