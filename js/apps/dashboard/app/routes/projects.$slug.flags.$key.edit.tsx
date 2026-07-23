@@ -252,7 +252,7 @@ export default function EditFlag() {
             className="rounded-md bg-falseflag-500 px-4 py-1 text-sm text-white hover:bg-falseflag-600 disabled:opacity-50"
             data-testid="save-cta"
           >
-            {submitting ? "Saving…" : "Save"}
+            {submitting ? "Saving" : "Save"}
           </button>
         </div>
       </Form>
